@@ -1,0 +1,159 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    # Security-critical linters
+    - gosec        # Comprehensive security analyzer
+    - errorlint    # Proper error handling patterns
+    - noctx        # HTTP requests must have context
+    - bodyclose    # HTTP response body must be closed
+    - sqlclosecheck # SQL rows/statements must be closed
+
+    # Code quality with security implications
+    - govet        # Suspicious constructs
+    - ineffassign  # Detect ineffectual assignments
+    - staticcheck  # Advanced static analysis
+    - unused       # Unused code detection
+    - typecheck    # Type checking
+
+    # Error handling
+    - errcheck     # Unchecked errors
+    - errchkjson   # JSON marshaling errors
+    - wastedassign # Wasted assignments
+
+    # Best practices
+    - gocritic     # Opinionated linter
+    - revive       # Fast, configurable linter
+    - unconvert    # Unnecessary type conversions
+    - dupl         # Code duplication
+    - goconst      # Repeated strings as constants
+    - godot        # Comment sentences
+    - godox        # TODO/FIXME comments
+    - gofmt        # Formatting
+    - goimports    # Import organization
+    - misspell     # Spelling mistakes
+    - nakedret     # Naked returns
+    - prealloc     # Slice capacity hints
+    - predeclared  # Shadowing predeclared identifiers
+    - copyloopvar  # Loop variable capture
+
+linters-settings:
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G104  # We'll use errcheck instead
+    config:
+      global:
+        audit: true
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # Performance optimization, not critical for correctness
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  gocritic:
+    enabled-checks:
+      - commentedOutCode
+      - deferInLoop
+      - emptyFallthrough
+      - emptyStringTest
+      - equalFold
+      - evalOrder
+      - exposedSyncMutex
+      - externalErrorReassign
+      - filepathJoin
+      - hexLiteral
+      - httpNoBody
+      - importShadow
+      - initClause
+      - methodExprCall
+      - nestingReduce
+      - nilValReturn
+      - octalLiteral
+      - paramTypeCombine
+      - preferFilepathJoin
+      - ptrToRefParam
+      - rangeExprCopy
+      - rangeValCopy
+      - sloppyReassign
+      - stringConcatSimplify
+      - timeExprSimplify
+      - tooManyResultsChecker
+      - truncateCmp
+      - typeAssertChain
+      - typeUnparen
+      - uncheckedInlineErr
+      - unlabelStmt
+      - unnamedResult
+      - unnecessaryBlock
+      - unnecessaryDefer
+      - weakCond
+      - yodaStyleExpr
+
+  revive:
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  staticcheck:
+    checks: ["all"]
+
+  dupl:
+    threshold: 100  # Tokens before considering duplication
+
+  godot:
+    scope: declarations
+    capital: true
+
+  misspell:
+    locale: US
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude test files from some checks
+    - path: _test\.go
+      linters:
+        - dupl
+        - gosec
+        - goconst
+
+    # Allow long functions in tests
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocognit
+        - gocyclo
