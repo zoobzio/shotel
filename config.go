@@ -2,7 +2,6 @@
 package shotel
 
 import (
-	"log/slog"
 	"time"
 )
 
@@ -19,9 +18,6 @@ type Config struct {
 
 	// Insecure disables TLS for the OTLP connection (default: false)
 	Insecure bool
-
-	// Logger for shotel operations (default: slog.Default())
-	Logger *slog.Logger
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -31,12 +27,5 @@ func DefaultConfig(serviceName string) *Config {
 		Endpoint:        "localhost:4317",
 		MetricsInterval: 10 * time.Second,
 		Insecure:        false,
-		Logger:          slog.Default(),
 	}
-}
-
-// WithLogger sets the logger for shotel operations.
-func (c *Config) WithLogger(logger *slog.Logger) *Config {
-	c.Logger = logger
-	return c
 }

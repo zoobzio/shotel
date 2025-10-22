@@ -41,11 +41,11 @@ func NewExporter(ctx context.Context, cfg *Config) (*Exporter, error) {
 
 	// If endpoint is empty, create in-memory exporters for testing
 	if cfg.Endpoint == "" {
-		cfg.Logger.Info("creating in-memory exporters for testing")
+		slog.Info("creating in-memory exporters for testing")
 		return newInMemoryExporter(res, cfg)
 	}
 
-	cfg.Logger.Debug("creating OTLP exporters",
+	slog.Debug("creating OTLP exporters",
 		slog.String("endpoint", cfg.Endpoint),
 		slog.Bool("insecure", cfg.Insecure))
 
@@ -59,10 +59,10 @@ func NewExporter(ctx context.Context, cfg *Config) (*Exporter, error) {
 
 	metricExporter, err := otlpmetricgrpc.New(ctx, metricOpts...)
 	if err != nil {
-		cfg.Logger.Error("failed to create metric exporter", slog.Any("error", err))
+		slog.Error("failed to create metric exporter", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to create metric exporter: %w", err)
 	}
-	cfg.Logger.Debug("created metric exporter")
+	slog.Debug("created metric exporter")
 
 	// Create trace exporter
 	traceOpts := []otlptracegrpc.Option{
@@ -74,11 +74,11 @@ func NewExporter(ctx context.Context, cfg *Config) (*Exporter, error) {
 
 	traceExporter, err := otlptracegrpc.New(ctx, traceOpts...)
 	if err != nil {
-		cfg.Logger.Error("failed to create trace exporter", slog.Any("error", err))
+		slog.Error("failed to create trace exporter", slog.Any("error", err))
 		_ = metricExporter.Shutdown(ctx) //nolint:errcheck // Cleanup on error path
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
-	cfg.Logger.Debug("created trace exporter")
+	slog.Debug("created trace exporter")
 
 	// Create log exporter
 	logOpts := []otlploggrpc.Option{
@@ -90,12 +90,12 @@ func NewExporter(ctx context.Context, cfg *Config) (*Exporter, error) {
 
 	logExporter, err := otlploggrpc.New(ctx, logOpts...)
 	if err != nil {
-		cfg.Logger.Error("failed to create log exporter", slog.Any("error", err))
+		slog.Error("failed to create log exporter", slog.Any("error", err))
 		_ = metricExporter.Shutdown(ctx) //nolint:errcheck // Cleanup on error path
 		_ = traceExporter.Shutdown(ctx)  //nolint:errcheck // Cleanup on error path
 		return nil, fmt.Errorf("failed to create log exporter: %w", err)
 	}
-	cfg.Logger.Debug("created log exporter")
+	slog.Debug("created log exporter")
 
 	// Create metric reader
 	metricReader := metric.NewPeriodicReader(
@@ -217,10 +217,4 @@ func (e *Exporter) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// SetLogger updates the logger used by the exporter.
-// Note: This is called internally by Shotel during construction.
-func (e *Exporter) SetLogger(logger *slog.Logger) {
-	_ = logger // Logger stored in Shotel, not Exporter
 }

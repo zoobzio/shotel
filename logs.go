@@ -19,7 +19,6 @@ import (
 //	engine.OnRequestReceived(handler)
 //	engine.OnRequestCompleted(handler)
 func (s *Shotel) CreateLogHandler() func(context.Context, any) error {
-	s.slogger.Debug("creating log handler for event bridging")
 	return func(ctx context.Context, event any) error {
 		// Build log record
 		record := otellog.Record{}
@@ -45,7 +44,6 @@ func (s *Shotel) CreateLogHandler() func(context.Context, any) error {
 //	logger := slog.New(shotel.CreateSlogHandler())
 //	logger.Info("request received", "method", "GET", "path", "/api/users")
 func (s *Shotel) CreateSlogHandler() slog.Handler {
-	s.slogger.Debug("creating slog handler for OTLP bridging")
 	return &slogHandler{
 		logger: s.logger,
 		attrs:  make([]otellog.KeyValue, 0),
@@ -171,13 +169,13 @@ func convertSlogAttr(key string, value slog.Value) otellog.KeyValue {
 // SetGlobalSlogHandler sets the global slog default handler to use OTLP.
 // This redirects all slog.Info/Warn/Error calls to OTLP automatically.
 func (s *Shotel) SetGlobalSlogHandler() {
-	s.slogger.Info("setting global slog handler to OTLP")
+	slog.Info("setting global slog handler to OTLP")
 	slog.SetDefault(slog.New(s.CreateSlogHandler()))
 }
 
 // SetGlobalOtelLogger sets the global OTLP logger provider.
 // This allows other OTLP-aware libraries to use the same log provider.
 func (s *Shotel) SetGlobalOtelLogger() {
-	s.slogger.Info("setting global OTLP logger provider")
+	slog.Info("setting global OTLP logger provider")
 	global.SetLoggerProvider(s.logProvider)
 }

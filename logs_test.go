@@ -230,3 +230,25 @@ func TestSetGlobalSlogHandler(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 }
+
+func TestSetGlobalOtelLogger(t *testing.T) {
+	ctx := context.Background()
+	cfg := DefaultConfig("global-otel-test")
+	cfg.Endpoint = ""
+
+	shotel, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("Failed to create Shotel: %v", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		_ = shotel.Shutdown(shutdownCtx) //nolint:errcheck // Test cleanup
+	}()
+
+	// Set global OTLP logger provider
+	shotel.SetGlobalOtelLogger()
+
+	// Verify no panic and method completes
+	time.Sleep(10 * time.Millisecond)
+}

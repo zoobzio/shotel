@@ -38,7 +38,6 @@ type Shotel struct {
 	tracer        trace.Tracer
 	logProvider   *sdklog.LoggerProvider
 	logger        otellog.Logger
-	slogger       *slog.Logger
 
 	// Metric observation tracking
 	observations []*metricObservation
@@ -74,18 +73,11 @@ func New(ctx context.Context, cfg *Config) (*Shotel, error) {
 		cfg = DefaultConfig("shotel")
 	}
 
-	cfg.Logger.Info("creating shotel instance",
-		slog.String("service", cfg.ServiceName),
-		slog.String("endpoint", cfg.Endpoint),
-		slog.Duration("metrics_interval", cfg.MetricsInterval))
-
-	// Create OTLP exporter
+	// Create OTLP exporter (uses slog.Default() temporarily)
 	exporter, err := NewExporter(ctx, cfg)
 	if err != nil {
-		cfg.Logger.Error("failed to create OTLP exporter", slog.Any("error", err))
 		return nil, err
 	}
-	cfg.Logger.Debug("created OTLP exporter")
 
 	// Create meter provider
 	provider := sdkmetric.NewMeterProvider(
@@ -102,7 +94,7 @@ func New(ctx context.Context, cfg *Config) (*Shotel, error) {
 	// Create logger for this shotel instance
 	logger := exporter.LogProvider().Logger("github.com/zoobzio/shotel")
 
-	return &Shotel{
+	s := &Shotel{
 		config:            cfg,
 		exporter:          exporter,
 		provider:          provider,
@@ -111,10 +103,19 @@ func New(ctx context.Context, cfg *Config) (*Shotel, error) {
 		tracer:            tracer,
 		logProvider:       exporter.LogProvider(),
 		logger:            logger,
-		slogger:           cfg.Logger,
 		observations:      make([]*metricObservation, 0),
 		traceObservations: make([]*traceObservation, 0),
-	}, nil
+	}
+
+	// Set global slog handler to send logs to OTLP
+	slog.SetDefault(slog.New(s.CreateSlogHandler()))
+
+	slog.Info("created shotel instance",
+		slog.String("service", cfg.ServiceName),
+		slog.String("endpoint", cfg.Endpoint),
+		slog.Duration("metrics_interval", cfg.MetricsInterval))
+
+	return s, nil
 }
 
 // ObserveMetrics registers an observable and starts polling specified metric keys.
@@ -122,7 +123,7 @@ func (s *Shotel) ObserveMetrics(observable Observable, keys ...metricz.Key) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.slogger.Info("observing metrics", slog.Int("key_count", len(keys)))
+	slog.Info("observing metrics", slog.Int("key_count", len(keys)))
 
 	// Build metric mapping by checking which types contain each key
 	mapping := &metricMapping{
@@ -150,7 +151,7 @@ func (s *Shotel) ObserveMetrics(observable Observable, keys ...metricz.Key) {
 		}
 	}
 
-	s.slogger.Debug("discovered metric types",
+	slog.Debug("discovered metric types",
 		slog.Int("counters", len(mapping.counters)),
 		slog.Int("gauges", len(mapping.gauges)),
 		slog.Int("histograms", len(mapping.histograms)),
@@ -188,9 +189,9 @@ func (s *Shotel) pollMetrics(ctx context.Context, obs *metricObservation) {
 		counter, err := s.meter.Int64Counter(string(key))
 		if err == nil {
 			otelCounters[key] = counter
-			s.slogger.Debug("registered counter", slog.String("key", string(key)))
+			slog.Debug("registered counter", slog.String("key", string(key)))
 		} else {
-			s.slogger.Error("failed to register counter", slog.String("key", string(key)), slog.Any("error", err))
+			slog.Error("failed to register counter", slog.String("key", string(key)), slog.Any("error", err))
 		}
 	}
 
@@ -207,9 +208,9 @@ func (s *Shotel) pollMetrics(ctx context.Context, obs *metricObservation) {
 		)
 		if err == nil {
 			otelGauges[key] = gauge
-			s.slogger.Debug("registered gauge", slog.String("key", string(key)))
+			slog.Debug("registered gauge", slog.String("key", string(key)))
 		} else {
-			s.slogger.Error("failed to register gauge", slog.String("key", string(key)), slog.Any("error", err))
+			slog.Error("failed to register gauge", slog.String("key", string(key)), slog.Any("error", err))
 		}
 	}
 
@@ -218,9 +219,9 @@ func (s *Shotel) pollMetrics(ctx context.Context, obs *metricObservation) {
 		histogram, err := s.meter.Float64Histogram(string(key))
 		if err == nil {
 			otelHistograms[key] = histogram
-			s.slogger.Debug("registered histogram", slog.String("key", string(key)))
+			slog.Debug("registered histogram", slog.String("key", string(key)))
 		} else {
-			s.slogger.Error("failed to register histogram", slog.String("key", string(key)), slog.Any("error", err))
+			slog.Error("failed to register histogram", slog.String("key", string(key)), slog.Any("error", err))
 		}
 	}
 
@@ -229,9 +230,9 @@ func (s *Shotel) pollMetrics(ctx context.Context, obs *metricObservation) {
 		histogram, err := s.meter.Float64Histogram(string(key))
 		if err == nil {
 			otelHistograms[key] = histogram
-			s.slogger.Debug("registered timer", slog.String("key", string(key)))
+			slog.Debug("registered timer", slog.String("key", string(key)))
 		} else {
-			s.slogger.Error("failed to register timer", slog.String("key", string(key)), slog.Any("error", err))
+			slog.Error("failed to register timer", slog.String("key", string(key)), slog.Any("error", err))
 		}
 	}
 
@@ -296,13 +297,13 @@ func (s *Shotel) ObserveTraces(traceable Traceable) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.slogger.Info("observing traces")
+	slog.Info("observing traces")
 
 	tracer := traceable.Tracer()
 
 	// Register handler to convert tracez spans to OTLP spans
 	handlerID := tracer.OnSpanComplete(func(span tracez.Span) {
-		s.slogger.Debug("bridging span to OTLP",
+		slog.Debug("bridging span to OTLP",
 			slog.String("span_name", span.Name),
 			slog.String("trace_id", span.TraceID))
 		// Create OTLP span
@@ -352,7 +353,7 @@ func (s *Shotel) Shutdown(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.slogger.Info("shutting down shotel",
+	slog.Info("shutting down shotel",
 		slog.Int("metric_observations", len(s.observations)),
 		slog.Int("trace_observations", len(s.traceObservations)))
 
@@ -360,26 +361,26 @@ func (s *Shotel) Shutdown(ctx context.Context) error {
 	for _, obs := range s.observations {
 		obs.cancel()
 	}
-	s.slogger.Debug("canceled all metric observations")
+	slog.Debug("canceled all metric observations")
 
 	// Remove all trace handlers
 	for _, obs := range s.traceObservations {
 		obs.traceable.Tracer().RemoveHandler(obs.handlerID)
 	}
-	s.slogger.Debug("removed all trace handlers")
+	slog.Debug("removed all trace handlers")
 
 	// Shutdown provider
 	if err := s.provider.Shutdown(ctx); err != nil {
-		s.slogger.Error("failed to shutdown meter provider", slog.Any("error", err))
+		slog.Error("failed to shutdown meter provider", slog.Any("error", err))
 		return err
 	}
-	s.slogger.Debug("shutdown meter provider")
+	slog.Debug("shutdown meter provider")
 
 	// Shutdown exporter
 	if err := s.exporter.Shutdown(ctx); err != nil {
-		s.slogger.Error("failed to shutdown exporter", slog.Any("error", err))
+		slog.Error("failed to shutdown exporter", slog.Any("error", err))
 		return err
 	}
-	s.slogger.Info("shotel shutdown complete")
+	slog.Info("shotel shutdown complete")
 	return nil
 }
