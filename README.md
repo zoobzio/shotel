@@ -1,5 +1,14 @@
 # shotel
 
+[![CI Status](https://github.com/zoobzio/shotel/workflows/CI/badge.svg)](https://github.com/zoobzio/shotel/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/zoobzio/shotel/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobzio/shotel)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zoobzio/shotel)](https://goreportcard.com/report/github.com/zoobzio/shotel)
+[![CodeQL](https://github.com/zoobzio/shotel/workflows/CodeQL/badge.svg)](https://github.com/zoobzio/shotel/security/code-scanning)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zoobzio/shotel.svg)](https://pkg.go.dev/github.com/zoobzio/shotel)
+[![License](https://img.shields.io/github/license/zoobzio/shotel)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/shotel)](go.mod)
+[![Release](https://img.shields.io/github/v/release/zoobzio/shotel)](https://github.com/zoobzio/shotel/releases)
+
 Opinionated capitan-to-OTEL bridge for automatic event observability.
 
 Shotel observes all [capitan](https://github.com/zoobzio/capitan) events and transforms them into OpenTelemetry signals (logs, metrics, traces) based on configuration, while exposing standard OTEL Logger, Meter, and Tracer interfaces for direct use.
