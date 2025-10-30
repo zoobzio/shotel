@@ -164,6 +164,9 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 		return // No correlation ID, cannot track
 	}
 
+	// Create composite key to prevent collisions between different trace configs
+	compositeKey := th.makeCompositeKey(correlationID, tc.Start, tc.End)
+
 	// Determine span name
 	spanName := tc.SpanName
 	if spanName == "" {
@@ -174,9 +177,9 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 	defer th.mu.Unlock()
 
 	// Check if end event already arrived
-	if pendingEnd, ok := th.pendingEnds[correlationID]; ok {
+	if pendingEnd, ok := th.pendingEnds[compositeKey]; ok {
 		// End arrived first - create span now with both timestamps
-		delete(th.pendingEnds, correlationID)
+		delete(th.pendingEnds, compositeKey)
 		th.mu.Unlock()
 
 		_, span := th.tracer.Start(ctx, spanName, trace.WithTimestamp(e.Timestamp()))
@@ -187,7 +190,7 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 	}
 
 	// No end yet - store start event data
-	th.pendingStarts[correlationID] = &pendingSpan{
+	th.pendingStarts[compositeKey] = &pendingSpan{
 		startTime:  e.Timestamp(),
 		startCtx:   ctx,
 		spanName:   spanName,
@@ -203,13 +206,16 @@ func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc Tra
 		return
 	}
 
+	// Create composite key to prevent collisions between different trace configs
+	compositeKey := th.makeCompositeKey(correlationID, tc.Start, tc.End)
+
 	th.mu.Lock()
 	defer th.mu.Unlock()
 
 	// Check if start event already arrived
-	if pendingStart, ok := th.pendingStarts[correlationID]; ok {
+	if pendingStart, ok := th.pendingStarts[compositeKey]; ok {
 		// Start arrived first - create span now with both timestamps
-		delete(th.pendingStarts, correlationID)
+		delete(th.pendingStarts, compositeKey)
 		th.mu.Unlock()
 
 		_, span := th.tracer.Start(pendingStart.startCtx, pendingStart.spanName,
@@ -221,11 +227,17 @@ func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc Tra
 	}
 
 	// No start yet - store end event data
-	th.pendingEnds[correlationID] = &pendingEnd{
+	th.pendingEnds[compositeKey] = &pendingEnd{
 		endTime:    e.Timestamp(),
 		endCtx:     ctx,
 		receivedAt: time.Now(),
 	}
+}
+
+// makeCompositeKey creates a unique key combining correlation ID and signal names.
+// This prevents collisions when multiple trace configs share the same correlation ID.
+func (*tracesHandler) makeCompositeKey(correlationID string, start, end capitan.Signal) string {
+	return correlationID + ":" + string(start) + ":" + string(end)
 }
 
 // extractCorrelationID gets the correlation ID from the event fields.

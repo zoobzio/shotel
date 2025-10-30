@@ -270,3 +270,77 @@ func TestTraceCloseEndsAllSpans(t *testing.T) {
 		t.Errorf("expected 0 pending events after close, got %d", remainingPending)
 	}
 }
+
+func TestTraceCompositeKeyPreventsCollisions(t *testing.T) {
+	ctx := context.Background()
+	cap := capitan.New()
+
+	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
+
+	// Define two different trace configs that will use the same correlation ID
+	dbQueryStarted := capitan.Signal("db.query.started")
+	dbQueryCompleted := capitan.Signal("db.query.completed")
+	httpRequestStarted := capitan.Signal("http.request.started")
+	httpRequestCompleted := capitan.Signal("http.request.completed")
+	correlationIDKey := capitan.NewStringKey("correlation_id")
+
+	config := &Config{
+		Traces: []TraceConfig{
+			{
+				Start:          dbQueryStarted,
+				End:            dbQueryCompleted,
+				CorrelationKey: &correlationIDKey,
+				SpanName:       "database_query",
+				SpanTimeout:    5 * time.Second,
+			},
+			{
+				Start:          httpRequestStarted,
+				End:            httpRequestCompleted,
+				CorrelationKey: &correlationIDKey,
+				SpanName:       "http_request",
+				SpanTimeout:    5 * time.Second,
+			},
+		},
+	}
+
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	if err != nil {
+		t.Fatalf("failed to create Shotel: %v", err)
+	}
+	defer sh.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(4)
+	listener := cap.Observe(func(ctx context.Context, e *capitan.Event) {
+		signal := e.Signal()
+		if signal == dbQueryStarted || signal == dbQueryCompleted ||
+			signal == httpRequestStarted || signal == httpRequestCompleted {
+			time.Sleep(10 * time.Millisecond)
+			wg.Done()
+		}
+	})
+
+	// Emit events with the same correlation ID for both trace configs
+	sharedID := "shared-123"
+	cap.Emit(ctx, dbQueryStarted, correlationIDKey.Field(sharedID))
+	cap.Emit(ctx, httpRequestStarted, correlationIDKey.Field(sharedID))
+	cap.Emit(ctx, dbQueryCompleted, correlationIDKey.Field(sharedID))
+	cap.Emit(ctx, httpRequestCompleted, correlationIDKey.Field(sharedID))
+	wg.Wait()
+	listener.Close()
+
+	// Both spans should complete without collision
+	th := sh.capitanObserver.tracesHandler
+	th.mu.Lock()
+	totalPending := len(th.pendingStarts) + len(th.pendingEnds)
+	th.mu.Unlock()
+
+	if totalPending != 0 {
+		t.Errorf("expected 0 pending events (both spans completed), got %d (starts: %d, ends: %d)",
+			totalPending, len(th.pendingStarts), len(th.pendingEnds))
+	}
+}
