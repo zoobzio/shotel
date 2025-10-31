@@ -179,6 +179,7 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 	// Check if end event already arrived
 	if pendingEnd, ok := th.pendingEnds[compositeKey]; ok {
 		// End arrived first - create span now with both timestamps
+		// e is the start event, pendingEnd has the end event
 		delete(th.pendingEnds, compositeKey)
 		th.mu.Unlock()
 
