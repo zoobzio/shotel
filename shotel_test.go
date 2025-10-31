@@ -174,7 +174,7 @@ func TestCapitanIntegration(t *testing.T) {
 	defer sh.Close()
 
 	// Define signal and keys
-	testSig := capitan.Signal("test.event")
+	testSig := capitan.NewSignal("test.event", "Test Event")
 	msgKey := capitan.NewStringKey("message")
 	countKey := capitan.NewIntKey("count")
 

@@ -134,7 +134,7 @@ func TestCustomTransformerIntegration(t *testing.T) {
 	defer sh.Close()
 
 	// Define signal and custom key
-	testSig := capitan.Signal("test.order.created")
+	testSig := capitan.NewSignal("test.order.created", "Test Order Created")
 	orderKey := capitan.NewKey[OrderInfo]("order", orderVariant)
 
 	// Emit event with custom type

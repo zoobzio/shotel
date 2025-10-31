@@ -19,8 +19,8 @@ func TestTraceSpanCleanup(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	requestStarted := capitan.Signal("request.started")
-	requestCompleted := capitan.Signal("request.completed")
+	requestStarted := capitan.NewSignal("request.started", "Request Started")
+	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
 	config := &Config{
@@ -115,8 +115,8 @@ func TestTraceSpanCompletesBeforeTimeout(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	requestStarted := capitan.Signal("request.started")
-	requestCompleted := capitan.Signal("request.completed")
+	requestStarted := capitan.NewSignal("request.started", "Request Started")
+	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
 	config := &Config{
@@ -175,8 +175,8 @@ func TestTraceDefaultTimeout(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	requestStarted := capitan.Signal("request.started")
-	requestCompleted := capitan.Signal("request.completed")
+	requestStarted := capitan.NewSignal("request.started", "Request Started")
+	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
 	// No timeout specified - should default to 5 minutes
@@ -212,8 +212,8 @@ func TestTraceCloseEndsAllSpans(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	requestStarted := capitan.Signal("request.started")
-	requestCompleted := capitan.Signal("request.completed")
+	requestStarted := capitan.NewSignal("request.started", "Request Started")
+	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
 	config := &Config{
@@ -282,10 +282,10 @@ func TestTraceCompositeKeyPreventsCollisions(t *testing.T) {
 	defer pvs.Shutdown(ctx)
 
 	// Define two different trace configs that will use the same correlation ID
-	dbQueryStarted := capitan.Signal("db.query.started")
-	dbQueryCompleted := capitan.Signal("db.query.completed")
-	httpRequestStarted := capitan.Signal("http.request.started")
-	httpRequestCompleted := capitan.Signal("http.request.completed")
+	dbQueryStarted := capitan.NewSignal("db.query.started", "Db Query Started")
+	dbQueryCompleted := capitan.NewSignal("db.query.completed", "Db Query Completed")
+	httpRequestStarted := capitan.NewSignal("http.request.started", "Http Request Started")
+	httpRequestCompleted := capitan.NewSignal("http.request.completed", "Http Request Completed")
 	correlationIDKey := capitan.NewStringKey("correlation_id")
 
 	config := &Config{

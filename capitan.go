@@ -81,8 +81,11 @@ func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
 	record.SetSeverity(severityToOTEL(e.Severity()))
 	record.SetSeverityText(string(e.Severity()))
 
+	// Set message from signal description
+	record.SetBody(log.StringValue(e.Signal().Description()))
+
 	// Add signal as attribute
-	record.AddAttributes(log.String("capitan.signal", string(e.Signal())))
+	record.AddAttributes(log.String("capitan.signal", e.Signal().Name()))
 
 	// Transform and add all fields
 	attrs := fieldsToAttributes(e.Fields())

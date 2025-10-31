@@ -18,7 +18,7 @@ func TestMetricTypeCounter(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	orderCreated := capitan.Signal("order.created")
+	orderCreated := capitan.NewSignal("order.created", "Order Created")
 
 	config := &Config{
 		Metrics: []MetricConfig{
@@ -56,7 +56,7 @@ func TestMetricTypeGaugeInt64(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	cpuUsage := capitan.Signal("system.cpu.usage")
+	cpuUsage := capitan.NewSignal("system.cpu.usage", "System Cpu Usage")
 	usageKey := capitan.NewInt64Key("percent")
 
 	config := &Config{
@@ -95,7 +95,7 @@ func TestMetricTypeGaugeFloat64(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	temperature := capitan.Signal("system.temperature")
+	temperature := capitan.NewSignal("system.temperature", "System Temperature")
 	tempKey := capitan.NewFloat64Key("celsius")
 
 	config := &Config{
@@ -132,7 +132,7 @@ func TestMetricTypeHistogramDuration(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	requestCompleted := capitan.Signal("request.completed")
+	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	durationKey := capitan.NewDurationKey("duration")
 
 	config := &Config{
@@ -172,7 +172,7 @@ func TestMetricTypeHistogramInt64(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	messageReceived := capitan.Signal("message.received")
+	messageReceived := capitan.NewSignal("message.received", "Message Received")
 	sizeKey := capitan.NewInt64Key("size_bytes")
 
 	config := &Config{
@@ -210,7 +210,7 @@ func TestMetricTypeUpDownCounterInt64(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	queueDepth := capitan.Signal("queue.depth.changed")
+	queueDepth := capitan.NewSignal("queue.depth.changed", "Queue Depth Changed")
 	deltaKey := capitan.NewInt64Key("delta")
 
 	config := &Config{
@@ -249,7 +249,7 @@ func TestMetricTypeUpDownCounterFloat64(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	balanceChanged := capitan.Signal("balance.changed")
+	balanceChanged := capitan.NewSignal("balance.changed", "Balance Changed")
 	amountKey := capitan.NewFloat64Key("amount")
 
 	config := &Config{
@@ -295,7 +295,7 @@ func TestMetricConfigValidation(t *testing.T) {
 		{
 			name: "counter without ValueKey (valid)",
 			config: MetricConfig{
-				Signal: capitan.Signal("test.signal"),
+				Signal: capitan.NewSignal("test.signal", "Test Signal"),
 				Name:   "test_counter",
 				Type:   MetricTypeCounter,
 			},
@@ -304,7 +304,7 @@ func TestMetricConfigValidation(t *testing.T) {
 		{
 			name: "gauge without ValueKey (invalid)",
 			config: MetricConfig{
-				Signal: capitan.Signal("test.signal"),
+				Signal: capitan.NewSignal("test.signal", "Test Signal"),
 				Name:   "test_gauge",
 				Type:   MetricTypeGauge,
 			},
@@ -313,7 +313,7 @@ func TestMetricConfigValidation(t *testing.T) {
 		{
 			name: "histogram with non-numeric ValueKey (invalid)",
 			config: MetricConfig{
-				Signal:   capitan.Signal("test.signal"),
+				Signal:   capitan.NewSignal("test.signal", "Test Signal"),
 				Name:     "test_histogram",
 				Type:     MetricTypeHistogram,
 				ValueKey: capitan.NewStringKey("value"),
@@ -323,7 +323,7 @@ func TestMetricConfigValidation(t *testing.T) {
 		{
 			name: "gauge with int64 ValueKey (valid)",
 			config: MetricConfig{
-				Signal:   capitan.Signal("test.signal"),
+				Signal:   capitan.NewSignal("test.signal", "Test Signal"),
 				Name:     "test_gauge",
 				Type:     MetricTypeGauge,
 				ValueKey: capitan.NewInt64Key("value"),
@@ -360,10 +360,10 @@ func TestMixedMetricTypes(t *testing.T) {
 	defer pvs.Shutdown(ctx)
 
 	// Define multiple signals with different metric types
-	orderCreated := capitan.Signal("order.created")
-	cpuUsage := capitan.Signal("cpu.usage")
-	requestCompleted := capitan.Signal("request.completed")
-	queueDepth := capitan.Signal("queue.depth")
+	orderCreated := capitan.NewSignal("order.created", "Order Created")
+	cpuUsage := capitan.NewSignal("cpu.usage", "Cpu Usage")
+	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
+	queueDepth := capitan.NewSignal("queue.depth", "Queue Depth")
 
 	usageKey := capitan.NewFloat64Key("percent")
 	durationKey := capitan.NewDurationKey("duration")
@@ -423,7 +423,7 @@ func TestDefaultMetricTypeIsCounter(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	testSignal := capitan.Signal("test.signal")
+	testSignal := capitan.NewSignal("test.signal", "Test Signal")
 
 	config := &Config{
 		Metrics: []MetricConfig{
@@ -455,7 +455,7 @@ func TestExtractNumericValue_AllIntegerTypes(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	testSignal := capitan.Signal("numeric.test")
+	testSignal := capitan.NewSignal("numeric.test", "Numeric Test")
 
 	// Test int
 	intKey := capitan.NewIntKey("int_value")
@@ -507,7 +507,7 @@ func TestExtractNumericValue_AllFloatTypes(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	testSignal := capitan.Signal("float.test")
+	testSignal := capitan.NewSignal("float.test", "Float Test")
 
 	float32Key := capitan.NewFloat32Key("float32_value")
 
@@ -539,7 +539,7 @@ func TestRecordHistogram_FloatVariant(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	testSignal := capitan.Signal("histogram.float.test")
+	testSignal := capitan.NewSignal("histogram.float.test", "Histogram Float Test")
 	valueKey := capitan.NewFloat64Key("value")
 
 	config := &Config{
@@ -578,7 +578,7 @@ func TestExtractNumericValue_MissingKey(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	testSignal := capitan.Signal("missing.key.test")
+	testSignal := capitan.NewSignal("missing.key.test", "Missing Key Test")
 	valueKey := capitan.NewInt64Key("value")
 
 	config := &Config{

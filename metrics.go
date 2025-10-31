@@ -83,7 +83,7 @@ func newMetricsHandler(s *Shotel) (*metricsHandler, error) {
 
 // validateMetricConfig checks if the metric configuration is valid.
 func validateMetricConfig(mc MetricConfig) error {
-	if mc.Signal == "" {
+	if mc.Signal.Name() == "" {
 		return fmt.Errorf("signal is required")
 	}
 	if mc.Name == "" {

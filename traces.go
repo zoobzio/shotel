@@ -170,7 +170,7 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 	// Determine span name
 	spanName := tc.SpanName
 	if spanName == "" {
-		spanName = string(tc.Start)
+		spanName = tc.Start.Name()
 	}
 
 	th.mu.Lock()
@@ -238,7 +238,7 @@ func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc Tra
 // makeCompositeKey creates a unique key combining correlation ID and signal names.
 // This prevents collisions when multiple trace configs share the same correlation ID.
 func (*tracesHandler) makeCompositeKey(correlationID string, start, end capitan.Signal) string {
-	return correlationID + ":" + string(start) + ":" + string(end)
+	return correlationID + ":" + start.Name() + ":" + end.Name()
 }
 
 // extractCorrelationID gets the correlation ID from the event fields.

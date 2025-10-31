@@ -19,8 +19,8 @@ func TestConfigMetrics(t *testing.T) {
 	defer pvs.Shutdown(ctx)
 
 	// Define signals
-	orderCreated := capitan.Signal("order.created")
-	orderFailed := capitan.Signal("order.failed")
+	orderCreated := capitan.NewSignal("order.created", "Order created")
+	orderFailed := capitan.NewSignal("order.failed", "Order failed")
 
 	// Configure metrics
 	config := &Config{
@@ -67,9 +67,9 @@ func TestConfigLogWhitelist(t *testing.T) {
 	defer pvs.Shutdown(ctx)
 
 	// Define signals
-	orderCreated := capitan.Signal("order.created")
-	orderFailed := capitan.Signal("order.failed")
-	orderCanceled := capitan.Signal("order.canceled")
+	orderCreated := capitan.NewSignal("order.created", "Order created")
+	orderFailed := capitan.NewSignal("order.failed", "Order failed")
+	orderCanceled := capitan.NewSignal("order.canceled", "Order canceled")
 
 	// Configure log whitelist - only log created and failed
 	config := &Config{
@@ -107,8 +107,8 @@ func TestConfigTraces(t *testing.T) {
 	defer pvs.Shutdown(ctx)
 
 	// Define signals
-	requestStarted := capitan.Signal("request.started")
-	requestCompleted := capitan.Signal("request.completed")
+	requestStarted := capitan.NewSignal("request.started", "Request started")
+	requestCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
 	// Configure traces
@@ -151,8 +151,8 @@ func TestConfigCombined(t *testing.T) {
 	defer pvs.Shutdown(ctx)
 
 	// Define signals
-	orderCreated := capitan.Signal("order.created")
-	orderCompleted := capitan.Signal("order.completed")
+	orderCreated := capitan.NewSignal("order.created", "Order created")
+	orderCompleted := capitan.NewSignal("order.completed", "Order completed")
 	orderIDKey := capitan.NewStringKey("order_id")
 
 	// Configure all three: metrics, logs, traces
@@ -211,7 +211,7 @@ func TestEmptyConfig(t *testing.T) {
 	defer sh.Close()
 
 	// Emit event
-	testSig := capitan.Signal("test.event")
+	testSig := capitan.NewSignal("test.event", "Test event")
 	cap.Emit(ctx, testSig)
 
 	time.Sleep(100 * time.Millisecond)

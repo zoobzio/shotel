@@ -61,8 +61,8 @@ func TestCapitanObserver_LogWhitelist(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	allowedSignal := capitan.Signal("allowed")
-	blockedSignal := capitan.Signal("blocked")
+	allowedSignal := capitan.NewSignal("allowed", "Allowed signal")
+	blockedSignal := capitan.NewSignal("blocked", "Blocked signal")
 
 	config := &Config{
 		Logs: &LogConfig{
@@ -101,8 +101,8 @@ func TestCapitanObserver_NoWhitelist(t *testing.T) {
 	}
 	defer sh.Close()
 
-	sig1 := capitan.Signal("event.one")
-	sig2 := capitan.Signal("event.two")
+	sig1 := capitan.NewSignal("event.one", "Event one")
+	sig2 := capitan.NewSignal("event.two", "Event two")
 
 	cap.Emit(ctx, sig1)
 	cap.Emit(ctx, sig2)
@@ -133,7 +133,7 @@ func TestCapitanObserver_EmptyWhitelist(t *testing.T) {
 	}
 	defer sh.Close()
 
-	sig := capitan.Signal("test.event")
+	sig := capitan.NewSignal("test.event", "Test event")
 	cap.Emit(ctx, sig)
 
 	// Should be logged (empty whitelist = log all)
@@ -171,9 +171,9 @@ func TestCapitanObserver_MetricsAndTracesIntegration(t *testing.T) {
 	}
 	defer pvs.Shutdown(ctx)
 
-	orderCreated := capitan.Signal("order.created")
-	requestStarted := capitan.Signal("request.started")
-	requestCompleted := capitan.Signal("request.completed")
+	orderCreated := capitan.NewSignal("order.created", "Order created")
+	requestStarted := capitan.NewSignal("request.started", "Request started")
+	requestCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestID := capitan.NewStringKey("request_id")
 
 	config := &Config{
@@ -224,7 +224,7 @@ func TestCapitanObserver_SeverityPropagation(t *testing.T) {
 	}
 	defer sh.Close()
 
-	testSignal := capitan.Signal("test.signal")
+	testSignal := capitan.NewSignal("test.signal", "Test signal")
 
 	// Emit events - capitan will set severity based on context
 	// Testing that severity mapping works without panicking
