@@ -2,6 +2,7 @@ package shotel
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -603,4 +604,128 @@ func TestExtractNumericValue_MissingKey(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	// Missing key should be handled gracefully
+}
+
+func TestMetricsHandler_NilHandler(t *testing.T) {
+	ctx := context.Background()
+
+	// Create nil handler
+	var mh *metricsHandler
+
+	// Should not panic
+	mh.handleEvent(ctx, nil)
+}
+
+func TestValidateMetricConfig_EmptyName(t *testing.T) {
+	testSignal := capitan.NewSignal("test.signal", "Test Signal")
+
+	config := MetricConfig{
+		Signal: testSignal,
+		Name:   "", // Empty name
+		Type:   MetricTypeCounter,
+	}
+
+	err := validateMetricConfig(config)
+	if err == nil {
+		t.Error("expected error for empty name, got nil")
+	}
+}
+
+func TestNumericValue_Conversions(t *testing.T) {
+	// Test int to float conversion
+	intVal := &numericValue{intValue: 42, isFloat: false}
+	if intVal.asInt64() != 42 {
+		t.Errorf("asInt64() = %v, want 42", intVal.asInt64())
+	}
+	if intVal.asFloat64() != 42.0 {
+		t.Errorf("asFloat64() = %v, want 42.0", intVal.asFloat64())
+	}
+
+	// Test float to int conversion
+	floatVal := &numericValue{floatValue: 3.14, isFloat: true}
+	if floatVal.asInt64() != 3 {
+		t.Errorf("asInt64() = %v, want 3", floatVal.asInt64())
+	}
+	if floatVal.asFloat64() != 3.14 {
+		t.Errorf("asFloat64() = %v, want 3.14", floatVal.asFloat64())
+	}
+}
+
+func TestExtractNumericValue_NilKey(t *testing.T) {
+	ctx := context.Background()
+	cap := capitan.New()
+
+	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
+
+	testSignal := capitan.NewSignal("test.signal", "Test Signal")
+	intKey := capitan.NewInt64Key("value")
+
+	// Capture event via a gauge metric handler
+	var capturedEvent *capitan.Event
+	var mu sync.Mutex
+	cap.Hook(testSignal, func(ctx context.Context, e *capitan.Event) {
+		mu.Lock()
+		capturedEvent = e
+		mu.Unlock()
+	})
+
+	// Create shotel to ensure hooks work
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	if err != nil {
+		t.Fatalf("failed to create Shotel: %v", err)
+	}
+	defer sh.Close()
+
+	// Emit event
+	cap.Emit(ctx, testSignal, intKey.Field(42))
+	time.Sleep(100 * time.Millisecond)
+
+	mu.Lock()
+	evt := capturedEvent
+	mu.Unlock()
+
+	if evt == nil {
+		t.Fatal("event was not captured")
+	}
+
+	// Extract with nil key
+	result := extractNumericValue(evt, nil)
+	if result != nil {
+		t.Error("expected nil for nil key")
+	}
+}
+
+func TestCreateInstrumentErrors(t *testing.T) {
+	ctx := context.Background()
+	cap := capitan.New()
+
+	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
+
+	testSignal := capitan.NewSignal("test.signal", "Test Signal")
+	stringKey := capitan.NewStringKey("value")
+
+	// Test with unknown metric type (should be caught by validation)
+	config := &Config{
+		Metrics: []MetricConfig{
+			{
+				Signal:   testSignal,
+				Name:     "test_metric",
+				Type:     "unknown_type",
+				ValueKey: stringKey,
+			},
+		},
+	}
+
+	_, err = New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	if err == nil {
+		t.Error("expected error for unknown metric type")
+	}
 }
