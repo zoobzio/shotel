@@ -17,6 +17,10 @@ type Config struct {
 
 	// Traces configures signal pairs that should be correlated into spans.
 	Traces []TraceConfig
+
+	// ContextExtraction specifies context keys to extract and add to OTEL signals.
+	// If nil, no context extraction is performed.
+	ContextExtraction *ContextExtractionConfig
 }
 
 // MetricType specifies the type of OTEL metric instrument.
@@ -91,4 +95,28 @@ type TraceConfig struct {
 	// automatically ended and cleaned up to prevent memory leaks.
 	// Defaults to 5 minutes if not specified or zero.
 	SpanTimeout time.Duration
+}
+
+// ContextKey defines a key-name pair for extracting values from context.Context.
+type ContextKey struct {
+	// Key is the context key used with context.Value().
+	// Typically an unexported type to avoid collisions.
+	Key any
+
+	// Name is the attribute name to use in OTEL signals.
+	Name string
+}
+
+// ContextExtractionConfig defines context values to extract for each signal type.
+type ContextExtractionConfig struct {
+	// Logs specifies context keys to extract and add to log attributes.
+	Logs []ContextKey
+
+	// Metrics specifies context keys to extract and add to metric dimensions.
+	// WARNING: High-cardinality values (like unique request IDs) can significantly
+	// increase metric storage costs. Use only low-cardinality values.
+	Metrics []ContextKey
+
+	// Traces specifies context keys to extract and add to span attributes.
+	Traces []ContextKey
 }

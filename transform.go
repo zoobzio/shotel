@@ -1,6 +1,7 @@
 package shotel
 
 import (
+	"context"
 	"time"
 
 	"github.com/zoobzio/capitan"
@@ -184,6 +185,96 @@ func fieldsToMetricAttributes(fields []capitan.Field) []attribute.KeyValue {
 			}
 
 			// Custom types skipped for metrics
+		}
+	}
+
+	return attrs
+}
+
+// extractContextValuesForLogs extracts values from context and converts them to log attributes.
+// Values that don't exist in context are skipped.
+func extractContextValuesForLogs(ctx context.Context, keys []ContextKey) []log.KeyValue {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	attrs := make([]log.KeyValue, 0, len(keys))
+	for _, ck := range keys {
+		val := ctx.Value(ck.Key)
+		if val == nil {
+			continue
+		}
+
+		// Convert value to appropriate OTEL log attribute type
+		switch v := val.(type) {
+		case string:
+			attrs = append(attrs, log.String(ck.Name, v))
+		case int:
+			attrs = append(attrs, log.Int64(ck.Name, int64(v)))
+		case int32:
+			attrs = append(attrs, log.Int64(ck.Name, int64(v)))
+		case int64:
+			attrs = append(attrs, log.Int64(ck.Name, v))
+		case uint:
+			attrs = append(attrs, log.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+		case uint32:
+			attrs = append(attrs, log.Int64(ck.Name, int64(v)))
+		case uint64:
+			attrs = append(attrs, log.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+		case float32:
+			attrs = append(attrs, log.Float64(ck.Name, float64(v)))
+		case float64:
+			attrs = append(attrs, log.Float64(ck.Name, v))
+		case bool:
+			attrs = append(attrs, log.Bool(ck.Name, v))
+		case []byte:
+			attrs = append(attrs, log.Bytes(ck.Name, v))
+			// Skip unsupported types
+		}
+	}
+
+	return attrs
+}
+
+// extractContextValuesForMetrics extracts values from context and converts them to metric attributes.
+// Values that don't exist in context are skipped.
+func extractContextValuesForMetrics(ctx context.Context, keys []ContextKey) []attribute.KeyValue {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	attrs := make([]attribute.KeyValue, 0, len(keys))
+	for _, ck := range keys {
+		val := ctx.Value(ck.Key)
+		if val == nil {
+			continue
+		}
+
+		// Convert value to appropriate OTEL metric attribute type
+		switch v := val.(type) {
+		case string:
+			attrs = append(attrs, attribute.String(ck.Name, v))
+		case int:
+			attrs = append(attrs, attribute.Int64(ck.Name, int64(v)))
+		case int32:
+			attrs = append(attrs, attribute.Int64(ck.Name, int64(v)))
+		case int64:
+			attrs = append(attrs, attribute.Int64(ck.Name, v))
+		case uint:
+			attrs = append(attrs, attribute.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+		case uint32:
+			attrs = append(attrs, attribute.Int64(ck.Name, int64(v)))
+		case uint64:
+			attrs = append(attrs, attribute.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+		case float32:
+			attrs = append(attrs, attribute.Float64(ck.Name, float64(v)))
+		case float64:
+			attrs = append(attrs, attribute.Float64(ck.Name, v))
+		case bool:
+			attrs = append(attrs, attribute.Bool(ck.Name, v))
+		case []byte:
+			attrs = append(attrs, attribute.String(ck.Name, string(v)))
+			// Skip unsupported types
 		}
 	}
 

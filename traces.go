@@ -38,6 +38,9 @@ type tracesHandler struct {
 	cleanupTicker *time.Ticker
 	stopCleanup   chan struct{}
 	maxTimeout    time.Duration
+
+	// Context extraction
+	contextKeys []ContextKey
 }
 
 // newTracesHandler creates a traces handler from config.
@@ -58,6 +61,12 @@ func newTracesHandler(s *Shotel) *tracesHandler {
 		}
 	}
 
+	// Extract context keys if configured
+	var contextKeys []ContextKey
+	if s.config.ContextExtraction != nil {
+		contextKeys = s.config.ContextExtraction.Traces
+	}
+
 	th := &tracesHandler{
 		tracer:        s.traceProvider.Tracer("capitan"),
 		config:        s.config.Traces,
@@ -65,6 +74,7 @@ func newTracesHandler(s *Shotel) *tracesHandler {
 		pendingEnds:   make(map[string]*pendingEnd),
 		stopCleanup:   make(chan struct{}),
 		maxTimeout:    maxTimeout,
+		contextKeys:   contextKeys,
 	}
 
 	// Start cleanup goroutine
@@ -184,6 +194,13 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 		th.mu.Unlock()
 
 		_, span := th.tracer.Start(ctx, spanName, trace.WithTimestamp(e.Timestamp()))
+
+		// Add context attributes if configured
+		if len(th.contextKeys) > 0 {
+			contextAttrs := extractContextValuesForMetrics(ctx, th.contextKeys)
+			span.SetAttributes(contextAttrs...)
+		}
+
 		span.End(trace.WithTimestamp(pendingEnd.endTime))
 
 		th.mu.Lock()
@@ -221,6 +238,13 @@ func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc Tra
 
 		_, span := th.tracer.Start(pendingStart.startCtx, pendingStart.spanName,
 			trace.WithTimestamp(pendingStart.startTime))
+
+		// Add context attributes if configured (use start context)
+		if len(th.contextKeys) > 0 {
+			contextAttrs := extractContextValuesForMetrics(pendingStart.startCtx, th.contextKeys)
+			span.SetAttributes(contextAttrs...)
+		}
+
 		span.End(trace.WithTimestamp(e.Timestamp()))
 
 		th.mu.Lock()

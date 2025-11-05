@@ -9,11 +9,14 @@ import (
 
 // capitanObserver observes all capitan events and transforms them to OTEL signals.
 type capitanObserver struct {
-	observer       *capitan.Observer
-	logger         log.Logger
-	metricsHandler *metricsHandler
-	tracesHandler  *tracesHandler
-	logWhitelist   map[capitan.Signal]struct{}
+	observer          *capitan.Observer
+	logger            log.Logger
+	metricsHandler    *metricsHandler
+	tracesHandler     *tracesHandler
+	logWhitelist      map[capitan.Signal]struct{}
+	logContextKeys    []ContextKey
+	metricContextKeys []ContextKey
+	traceContextKeys  []ContextKey
 }
 
 // newCapitanObserver creates and attaches an observer to the capitan instance.
@@ -38,11 +41,22 @@ func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error)
 	// Create traces handler if configured
 	tracesHandler := newTracesHandler(s)
 
+	// Extract context keys if configured
+	var logContextKeys, metricContextKeys, traceContextKeys []ContextKey
+	if s.config.ContextExtraction != nil {
+		logContextKeys = s.config.ContextExtraction.Logs
+		metricContextKeys = s.config.ContextExtraction.Metrics
+		traceContextKeys = s.config.ContextExtraction.Traces
+	}
+
 	co := &capitanObserver{
-		logger:         s.logProvider.Logger("capitan"),
-		metricsHandler: metricsHandler,
-		tracesHandler:  tracesHandler,
-		logWhitelist:   logWhitelist,
+		logger:            s.logProvider.Logger("capitan"),
+		metricsHandler:    metricsHandler,
+		tracesHandler:     tracesHandler,
+		logWhitelist:      logWhitelist,
+		logContextKeys:    logContextKeys,
+		metricContextKeys: metricContextKeys,
+		traceContextKeys:  traceContextKeys,
 	}
 
 	// Observe all signals
@@ -90,6 +104,12 @@ func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
 	// Transform and add all fields
 	attrs := fieldsToAttributes(e.Fields())
 	record.AddAttributes(attrs...)
+
+	// Extract and add context values if configured
+	if len(co.logContextKeys) > 0 {
+		contextAttrs := extractContextValuesForLogs(ctx, co.logContextKeys)
+		record.AddAttributes(contextAttrs...)
+	}
 
 	// Emit log record
 	co.logger.Emit(ctx, record)

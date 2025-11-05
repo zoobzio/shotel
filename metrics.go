@@ -29,6 +29,7 @@ type metricsHandler struct {
 	meter       metric.Meter
 	instruments map[capitan.Signal]*metricInstrument
 	mu          sync.RWMutex
+	contextKeys []ContextKey
 }
 
 // newMetricsHandler creates a metrics handler from config.
@@ -37,9 +38,16 @@ func newMetricsHandler(s *Shotel) (*metricsHandler, error) {
 		return nil, nil
 	}
 
+	// Extract context keys if configured
+	var contextKeys []ContextKey
+	if s.config.ContextExtraction != nil {
+		contextKeys = s.config.ContextExtraction.Metrics
+	}
+
 	mh := &metricsHandler{
 		meter:       s.meterProvider.Meter("capitan"),
 		instruments: make(map[capitan.Signal]*metricInstrument),
+		contextKeys: contextKeys,
 	}
 
 	// Pre-create all configured instruments
@@ -232,6 +240,13 @@ func (mh *metricsHandler) handleEvent(ctx context.Context, e *capitan.Event) {
 
 	// Convert fields to metric attributes
 	attrs := fieldsToMetricAttributes(e.Fields())
+
+	// Extract and add context values if configured
+	if len(mh.contextKeys) > 0 {
+		contextAttrs := extractContextValuesForMetrics(ctx, mh.contextKeys)
+		attrs = append(attrs, contextAttrs...)
+	}
+
 	opts := metric.WithAttributes(attrs...)
 
 	// Handle based on metric type

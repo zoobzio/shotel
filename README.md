@@ -246,6 +246,58 @@ config := &shotel.Config{
 
 A single event can trigger multiple signal types (counted as metric + logged + start/end span).
 
+### Context Extraction: Enrich Signals with Context Values
+
+Extract values from `context.Context` and automatically add them as attributes to logs, metrics, and traces:
+
+```go
+// Define custom context keys
+type ctxKey string
+const (
+    userIDKey  ctxKey = "user_id"
+    regionKey  ctxKey = "region"
+)
+
+config := &shotel.Config{
+    ContextExtraction: &shotel.ContextExtractionConfig{
+        // Extract for logs
+        Logs: []shotel.ContextKey{
+            {Key: userIDKey, Name: "user_id"},
+            {Key: regionKey, Name: "region"},
+        },
+
+        // Extract for metrics (use low-cardinality values only!)
+        Metrics: []shotel.ContextKey{
+            {Key: regionKey, Name: "region"},  // Good: limited values
+            // Avoid: {Key: userIDKey, ...}    // Bad: high cardinality
+        },
+
+        // Extract for traces
+        Traces: []shotel.ContextKey{
+            {Key: userIDKey, Name: "user_id"},
+            {Key: regionKey, Name: "region"},
+        },
+    },
+}
+
+// Add values to context
+ctx := context.Background()
+ctx = context.WithValue(ctx, userIDKey, "user-123")
+ctx = context.WithValue(ctx, regionKey, "us-east-1")
+
+// Emit event - context values automatically extracted
+cap.Emit(ctx, orderCreated, orderIDKey.Field("ORDER-456"))
+// ↑ Logs/metrics/traces will include user_id and region attributes
+```
+
+**Supported Context Value Types:**
+- `string`, `int`, `int32`, `int64`, `uint`, `uint32`, `uint64`
+- `float32`, `float64`, `bool`, `[]byte`
+
+**Missing Values:** If a context key is configured but not present in the context, it is skipped (no nil/empty attributes added).
+
+**Metrics Cardinality Warning:** Only use low-cardinality context values for metrics (e.g., region, environment, service tier). High-cardinality values like user IDs or request IDs can exponentially increase metric storage costs.
+
 ## API
 
 ### Shotel
