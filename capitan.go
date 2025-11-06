@@ -17,6 +17,7 @@ type capitanObserver struct {
 	logContextKeys    []ContextKey
 	metricContextKeys []ContextKey
 	traceContextKeys  []ContextKey
+	stdoutLogger      *stdoutLogger
 }
 
 // newCapitanObserver creates and attaches an observer to the capitan instance.
@@ -49,6 +50,12 @@ func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error)
 		traceContextKeys = s.config.ContextExtraction.Traces
 	}
 
+	// Create stdout logger if enabled
+	var stdoutLogger *stdoutLogger
+	if s.config.StdoutLogging {
+		stdoutLogger = newStdoutLogger()
+	}
+
 	co := &capitanObserver{
 		logger:            s.logProvider.Logger("capitan"),
 		metricsHandler:    metricsHandler,
@@ -57,6 +64,7 @@ func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error)
 		logContextKeys:    logContextKeys,
 		metricContextKeys: metricContextKeys,
 		traceContextKeys:  traceContextKeys,
+		stdoutLogger:      stdoutLogger,
 	}
 
 	// Observe all signals
@@ -67,6 +75,11 @@ func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error)
 
 // handleEvent transforms a capitan event to OTEL signals based on configuration.
 func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
+	// Log to stdout if enabled (before any filtering)
+	if co.stdoutLogger != nil {
+		co.stdoutLogger.logEvent(ctx, e, co.logContextKeys)
+	}
+
 	// Handle metrics if configured
 	if co.metricsHandler != nil {
 		co.metricsHandler.handleEvent(ctx, e)

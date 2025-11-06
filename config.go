@@ -21,6 +21,10 @@ type Config struct {
 	// ContextExtraction specifies context keys to extract and add to OTEL signals.
 	// If nil, no context extraction is performed.
 	ContextExtraction *ContextExtractionConfig
+
+	// StdoutLogging enables duplication of OTEL output to stdout.
+	// When true, all OTEL signals are logged to stdout in human-readable format using slog.
+	StdoutLogging bool
 }
 
 // MetricType specifies the type of OTEL metric instrument.
