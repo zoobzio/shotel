@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -67,7 +67,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var sh *Shotel
+			var sh *Aperture
 			var err error
 
 			// Handle nil interfaces properly
@@ -99,7 +99,7 @@ func TestNew(t *testing.T) {
 			}
 
 			if sh == nil {
-				t.Fatal("expected non-nil Shotel instance")
+				t.Fatal("expected non-nil Aperture instance")
 			}
 
 			// Verify providers initialized
@@ -122,7 +122,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestShotelInterfaces(t *testing.T) {
+func TestApertureInterfaces(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -134,7 +134,7 @@ func TestShotelInterfaces(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -169,7 +169,7 @@ func TestCapitanIntegration(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -203,7 +203,7 @@ func TestClose(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 
 	// Close should complete without error

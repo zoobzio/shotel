@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -9,12 +9,26 @@ import (
 	"go.opentelemetry.io/otel/log"
 )
 
+// transformResult holds the result of field transformation.
+type transformResult struct {
+	attrs   []log.KeyValue
+	skipped []skippedField
+}
+
+// skippedField records a field that could not be transformed.
+type skippedField struct {
+	key     string
+	variant string
+}
+
 // fieldsToAttributes transforms capitan fields to OTEL log attributes.
 //
 // Only built-in capitan field variants are supported. Custom field types
-// are skipped (to be handled by future transformer registration system).
-func fieldsToAttributes(fields []capitan.Field) []log.KeyValue {
-	attrs := make([]log.KeyValue, 0, len(fields))
+// are skipped unless a transformer is provided.
+func fieldsToAttributes(fields []capitan.Field, transformers map[capitan.Variant]FieldTransformer) transformResult {
+	result := transformResult{
+		attrs: make([]log.KeyValue, 0, len(fields)),
+	}
 
 	for _, f := range fields {
 		key := f.Key().Name()
@@ -22,88 +36,93 @@ func fieldsToAttributes(fields []capitan.Field) []log.KeyValue {
 		switch f.Variant() {
 		case capitan.VariantString:
 			if gf, ok := f.(capitan.GenericField[string]); ok {
-				attrs = append(attrs, log.String(key, gf.Get()))
+				result.attrs = append(result.attrs, log.String(key, gf.Get()))
 			}
 
 		case capitan.VariantInt:
 			if gf, ok := f.(capitan.GenericField[int]); ok {
-				attrs = append(attrs, log.Int64(key, int64(gf.Get())))
+				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get())))
 			}
 
 		case capitan.VariantInt32:
 			if gf, ok := f.(capitan.GenericField[int32]); ok {
-				attrs = append(attrs, log.Int64(key, int64(gf.Get())))
+				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get())))
 			}
 
 		case capitan.VariantInt64:
 			if gf, ok := f.(capitan.GenericField[int64]); ok {
-				attrs = append(attrs, log.Int64(key, gf.Get()))
+				result.attrs = append(result.attrs, log.Int64(key, gf.Get()))
 			}
 
 		case capitan.VariantUint:
 			if gf, ok := f.(capitan.GenericField[uint]); ok {
-				attrs = append(attrs, log.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
 			}
 
 		case capitan.VariantUint32:
 			if gf, ok := f.(capitan.GenericField[uint32]); ok {
-				attrs = append(attrs, log.Int64(key, int64(gf.Get())))
+				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get())))
 			}
 
 		case capitan.VariantUint64:
 			if gf, ok := f.(capitan.GenericField[uint64]); ok {
-				attrs = append(attrs, log.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
 			}
 
 		case capitan.VariantFloat32:
 			if gf, ok := f.(capitan.GenericField[float32]); ok {
-				attrs = append(attrs, log.Float64(key, float64(gf.Get())))
+				result.attrs = append(result.attrs, log.Float64(key, float64(gf.Get())))
 			}
 
 		case capitan.VariantFloat64:
 			if gf, ok := f.(capitan.GenericField[float64]); ok {
-				attrs = append(attrs, log.Float64(key, gf.Get()))
+				result.attrs = append(result.attrs, log.Float64(key, gf.Get()))
 			}
 
 		case capitan.VariantBool:
 			if gf, ok := f.(capitan.GenericField[bool]); ok {
-				attrs = append(attrs, log.Bool(key, gf.Get()))
+				result.attrs = append(result.attrs, log.Bool(key, gf.Get()))
 			}
 
 		case capitan.VariantTime:
 			if gf, ok := f.(capitan.GenericField[time.Time]); ok {
 				// Store as Unix timestamp in seconds
-				attrs = append(attrs, log.Int64(key, gf.Get().Unix()))
+				result.attrs = append(result.attrs, log.Int64(key, gf.Get().Unix()))
 			}
 
 		case capitan.VariantDuration:
 			if gf, ok := f.(capitan.GenericField[time.Duration]); ok {
 				// Store as nanoseconds
-				attrs = append(attrs, log.Int64(key, int64(gf.Get())))
+				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get())))
 			}
 
 		case capitan.VariantBytes:
 			if gf, ok := f.(capitan.GenericField[[]byte]); ok {
-				attrs = append(attrs, log.Bytes(key, gf.Get()))
+				result.attrs = append(result.attrs, log.Bytes(key, gf.Get()))
 			}
 
 		case capitan.VariantError:
 			if gf, ok := f.(capitan.GenericField[error]); ok {
-				attrs = append(attrs, log.String(key, gf.Get().Error()))
+				result.attrs = append(result.attrs, log.String(key, gf.Get().Error()))
 			}
 
 		default:
-			// Check registry for custom transformer
-			if transformer, ok := globalRegistry.lookup(f.Variant()); ok {
+			// Check for custom transformer
+			if transformer, ok := transformers[f.Variant()]; ok {
 				if customAttrs := transformer(f); len(customAttrs) > 0 {
-					attrs = append(attrs, customAttrs...)
+					result.attrs = append(result.attrs, customAttrs...)
 				}
+			} else {
+				// Record skipped field for diagnostics
+				result.skipped = append(result.skipped, skippedField{
+					key:     key,
+					variant: string(f.Variant()),
+				})
 			}
-			// Otherwise skip unknown type
 		}
 	}
 
-	return attrs
+	return result
 }
 
 // fieldsToMetricAttributes transforms capitan fields to OTEL metric attributes.

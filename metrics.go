@@ -1,9 +1,8 @@
-package shotel
+package aperture
 
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/zoobzio/capitan"
@@ -28,12 +27,11 @@ type metricInstrument struct {
 type metricsHandler struct {
 	meter       metric.Meter
 	instruments map[capitan.Signal]*metricInstrument
-	mu          sync.RWMutex
 	contextKeys []ContextKey
 }
 
 // newMetricsHandler creates a metrics handler from config.
-func newMetricsHandler(s *Shotel) (*metricsHandler, error) {
+func newMetricsHandler(s *Aperture) (*metricsHandler, error) {
 	if len(s.config.Metrics) == 0 {
 		return nil, nil
 	}
@@ -225,15 +223,12 @@ func isFloatVariant(v capitan.Variant) bool {
 }
 
 // handleEvent processes a capitan event and records metrics.
-func (mh *metricsHandler) handleEvent(ctx context.Context, e *capitan.Event) {
+func (mh *metricsHandler) handleEvent(ctx context.Context, e *capitan.Event, internal *internalObserver) {
 	if mh == nil {
 		return
 	}
 
-	mh.mu.RLock()
 	inst, ok := mh.instruments[e.Signal()]
-	mh.mu.RUnlock()
-
 	if !ok {
 		return
 	}
@@ -256,21 +251,26 @@ func (mh *metricsHandler) handleEvent(ctx context.Context, e *capitan.Event) {
 		inst.int64Counter.Add(ctx, 1, opts)
 
 	case MetricTypeUpDownCounter:
-		mh.recordUpDownCounter(ctx, inst, e, opts)
+		mh.recordUpDownCounter(ctx, inst, e, opts, internal)
 
 	case MetricTypeGauge:
-		mh.recordGauge(ctx, inst, e, opts)
+		mh.recordGauge(ctx, inst, e, opts, internal)
 
 	case MetricTypeHistogram:
-		mh.recordHistogram(ctx, inst, e, opts)
+		mh.recordHistogram(ctx, inst, e, opts, internal)
 	}
 }
 
 // recordUpDownCounter extracts value from event and records it.
-func (*metricsHandler) recordUpDownCounter(ctx context.Context, inst *metricInstrument, e *capitan.Event, opts metric.AddOption) {
+func (*metricsHandler) recordUpDownCounter(ctx context.Context, inst *metricInstrument, e *capitan.Event, opts metric.AddOption, internal *internalObserver) {
 	value := extractNumericValue(e, inst.config.ValueKey)
 	if value == nil {
-		return // Value not found or wrong type
+		internal.emit(ctx, SignalMetricValueMissing,
+			internalSignal.Field(e.Signal().Name()),
+			internalMetricName.Field(inst.config.Name),
+			internalValueKey.Field(inst.config.ValueKey.Name()),
+		)
+		return
 	}
 
 	if inst.int64UpDownCounter != nil {
@@ -281,9 +281,14 @@ func (*metricsHandler) recordUpDownCounter(ctx context.Context, inst *metricInst
 }
 
 // recordGauge extracts value from event and records it.
-func (*metricsHandler) recordGauge(ctx context.Context, inst *metricInstrument, e *capitan.Event, opts metric.RecordOption) {
+func (*metricsHandler) recordGauge(ctx context.Context, inst *metricInstrument, e *capitan.Event, opts metric.RecordOption, internal *internalObserver) {
 	value := extractNumericValue(e, inst.config.ValueKey)
 	if value == nil {
+		internal.emit(ctx, SignalMetricValueMissing,
+			internalSignal.Field(e.Signal().Name()),
+			internalMetricName.Field(inst.config.Name),
+			internalValueKey.Field(inst.config.ValueKey.Name()),
+		)
 		return
 	}
 
@@ -295,9 +300,14 @@ func (*metricsHandler) recordGauge(ctx context.Context, inst *metricInstrument, 
 }
 
 // recordHistogram extracts value from event and records it.
-func (*metricsHandler) recordHistogram(ctx context.Context, inst *metricInstrument, e *capitan.Event, opts metric.RecordOption) {
+func (*metricsHandler) recordHistogram(ctx context.Context, inst *metricInstrument, e *capitan.Event, opts metric.RecordOption, internal *internalObserver) {
 	value := extractNumericValue(e, inst.config.ValueKey)
 	if value == nil {
+		internal.emit(ctx, SignalMetricValueMissing,
+			internalSignal.Field(e.Signal().Name()),
+			internalMetricName.Field(inst.config.Name),
+			internalValueKey.Field(inst.config.ValueKey.Name()),
+		)
 		return
 	}
 

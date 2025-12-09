@@ -1,9 +1,10 @@
-package shotel
+package aperture
 
 import (
 	"time"
 
 	"github.com/zoobzio/capitan"
+	"go.opentelemetry.io/otel/log"
 )
 
 // Config configures how capitan events are transformed to OTEL signals.
@@ -25,6 +26,47 @@ type Config struct {
 	// StdoutLogging enables duplication of OTEL output to stdout.
 	// When true, all OTEL signals are logged to stdout in human-readable format using slog.
 	StdoutLogging bool
+
+	// Transformers registers custom field transformers for user-defined types.
+	// Keys are capitan variants, values are transformer functions.
+	// Use RegisterTransformer helper to build this map with type safety.
+	Transformers map[capitan.Variant]FieldTransformer
+}
+
+// FieldTransformer converts a capitan field to OTEL log attributes.
+// Return nil or empty slice to skip the field.
+type FieldTransformer func(f capitan.Field) []log.KeyValue
+
+// TransformerFunc is a type-safe transformer for a specific field type.
+// Use with MakeTransformer to create a FieldTransformer.
+type TransformerFunc[T any] func(key string, value T) []log.KeyValue
+
+// MakeTransformer creates a FieldTransformer from a type-safe TransformerFunc.
+//
+// Example:
+//
+//	type OrderInfo struct {
+//	    ID    string
+//	    Total float64
+//	}
+//
+//	config := &aperture.Config{
+//	    Transformers: map[capitan.Variant]aperture.FieldTransformer{
+//	        orderVariant: aperture.MakeTransformer(func(key string, order OrderInfo) []log.KeyValue {
+//	            return []log.KeyValue{
+//	                log.String(key+".id", order.ID),
+//	                log.Float64(key+".total", order.Total),
+//	            }
+//	        }),
+//	    },
+//	}
+func MakeTransformer[T any](fn TransformerFunc[T]) FieldTransformer {
+	return func(f capitan.Field) []log.KeyValue {
+		if gf, ok := f.(capitan.GenericField[T]); ok {
+			return fn(f.Key().Name(), gf.Get())
+		}
+		return nil
+	}
 }
 
 // MetricType specifies the type of OTEL metric instrument.

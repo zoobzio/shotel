@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -9,21 +9,21 @@ import (
 
 // capitanObserver observes all capitan events and transforms them to OTEL signals.
 type capitanObserver struct {
-	observer          *capitan.Observer
-	logger            log.Logger
-	metricsHandler    *metricsHandler
-	tracesHandler     *tracesHandler
-	logWhitelist      map[capitan.Signal]struct{}
-	logContextKeys    []ContextKey
-	metricContextKeys []ContextKey
-	traceContextKeys  []ContextKey
-	stdoutLogger      *stdoutLogger
+	observer       *capitan.Observer
+	logger         log.Logger
+	metricsHandler *metricsHandler
+	tracesHandler  *tracesHandler
+	logWhitelist   map[capitan.Signal]struct{}
+	logContextKeys []ContextKey
+	stdoutLogger   *stdoutLogger
+	internal       *internalObserver
+	transformers   map[capitan.Variant]FieldTransformer
 }
 
 // newCapitanObserver creates and attaches an observer to the capitan instance.
 //
 // Events are transformed to OTEL signals based on configuration.
-func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error) {
+func newCapitanObserver(s *Aperture, c *capitan.Capitan) (*capitanObserver, error) {
 	// Create metrics handler if configured
 	metricsHandler, err := newMetricsHandler(s)
 	if err != nil {
@@ -43,11 +43,9 @@ func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error)
 	tracesHandler := newTracesHandler(s)
 
 	// Extract context keys if configured
-	var logContextKeys, metricContextKeys, traceContextKeys []ContextKey
+	var logContextKeys []ContextKey
 	if s.config.ContextExtraction != nil {
 		logContextKeys = s.config.ContextExtraction.Logs
-		metricContextKeys = s.config.ContextExtraction.Metrics
-		traceContextKeys = s.config.ContextExtraction.Traces
 	}
 
 	// Create stdout logger if enabled
@@ -57,14 +55,14 @@ func newCapitanObserver(s *Shotel, c *capitan.Capitan) (*capitanObserver, error)
 	}
 
 	co := &capitanObserver{
-		logger:            s.logProvider.Logger("capitan"),
-		metricsHandler:    metricsHandler,
-		tracesHandler:     tracesHandler,
-		logWhitelist:      logWhitelist,
-		logContextKeys:    logContextKeys,
-		metricContextKeys: metricContextKeys,
-		traceContextKeys:  traceContextKeys,
-		stdoutLogger:      stdoutLogger,
+		logger:         s.logProvider.Logger("capitan"),
+		metricsHandler: metricsHandler,
+		tracesHandler:  tracesHandler,
+		logWhitelist:   logWhitelist,
+		logContextKeys: logContextKeys,
+		stdoutLogger:   stdoutLogger,
+		internal:       s.internalObserver,
+		transformers:   s.config.Transformers,
 	}
 
 	// Observe all signals
@@ -82,7 +80,7 @@ func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
 
 	// Handle metrics if configured
 	if co.metricsHandler != nil {
-		co.metricsHandler.handleEvent(ctx, e)
+		co.metricsHandler.handleEvent(ctx, e, co.internal)
 	}
 
 	// Handle traces if configured
@@ -115,8 +113,17 @@ func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
 	record.AddAttributes(log.String("capitan.signal", e.Signal().Name()))
 
 	// Transform and add all fields
-	attrs := fieldsToAttributes(e.Fields())
-	record.AddAttributes(attrs...)
+	result := fieldsToAttributes(e.Fields(), co.transformers)
+	record.AddAttributes(result.attrs...)
+
+	// Emit diagnostics for skipped fields
+	for _, skipped := range result.skipped {
+		co.internal.emit(ctx, SignalTransformSkipped,
+			internalFieldKey.Field(skipped.key),
+			internalFieldVariant.Field(skipped.variant),
+			internalSignal.Field(e.Signal().Name()),
+		)
+	}
 
 	// Extract and add context values if configured
 	if len(co.logContextKeys) > 0 {

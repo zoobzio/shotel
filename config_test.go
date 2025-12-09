@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -40,7 +40,7 @@ func TestConfigMetrics(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -80,7 +80,7 @@ func TestConfigLogWhitelist(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -125,7 +125,7 @@ func TestConfigTraces(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -176,7 +176,7 @@ func TestConfigCombined(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -206,7 +206,7 @@ func TestEmptyConfig(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 

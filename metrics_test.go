@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func TestMetricTypeCounter(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -73,7 +73,7 @@ func TestMetricTypeGaugeInt64(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -112,7 +112,7 @@ func TestMetricTypeGaugeFloat64(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -150,7 +150,7 @@ func TestMetricTypeHistogramDuration(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -189,7 +189,7 @@ func TestMetricTypeHistogramInt64(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -227,7 +227,7 @@ func TestMetricTypeUpDownCounterInt64(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -266,7 +266,7 @@ func TestMetricTypeUpDownCounterFloat64(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -400,7 +400,7 @@ func TestMixedMetricTypes(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -438,7 +438,7 @@ func TestDefaultMetricTypeIsCounter(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -481,7 +481,7 @@ func TestExtractNumericValue_AllIntegerTypes(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -520,7 +520,7 @@ func TestExtractNumericValue_AllFloatTypes(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -556,7 +556,7 @@ func TestRecordHistogram_FloatVariant(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -595,7 +595,7 @@ func TestExtractNumericValue_MissingKey(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -613,7 +613,7 @@ func TestMetricsHandler_NilHandler(t *testing.T) {
 	var mh *metricsHandler
 
 	// Should not panic
-	mh.handleEvent(ctx, nil)
+	mh.handleEvent(ctx, nil, nil)
 }
 
 func TestValidateMetricConfig_EmptyName(t *testing.T) {
@@ -673,10 +673,10 @@ func TestExtractNumericValue_NilKey(t *testing.T) {
 		mu.Unlock()
 	})
 
-	// Create shotel to ensure hooks work
+	// Create aperture to ensure hooks work
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 

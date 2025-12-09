@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -11,17 +11,20 @@ import (
 
 // pendingSpan holds start event data waiting for the corresponding end event.
 type pendingSpan struct {
-	startTime  time.Time
-	startCtx   context.Context
-	spanName   string
-	receivedAt time.Time // For cleanup timeout
+	startTime     time.Time
+	startCtx      context.Context
+	spanName      string
+	correlationID string
+	receivedAt    time.Time // For cleanup timeout
 }
 
 // pendingEnd holds end event data waiting for the corresponding start event.
 type pendingEnd struct {
-	endTime    time.Time
-	endCtx     context.Context
-	receivedAt time.Time // For cleanup timeout
+	endTime       time.Time
+	endCtx        context.Context
+	correlationID string
+	spanName      string
+	receivedAt    time.Time // For cleanup timeout
 }
 
 // tracesHandler manages trace correlation from signal pairs.
@@ -41,10 +44,13 @@ type tracesHandler struct {
 
 	// Context extraction
 	contextKeys []ContextKey
+
+	// Internal diagnostics
+	internal *internalObserver
 }
 
 // newTracesHandler creates a traces handler from config.
-func newTracesHandler(s *Shotel) *tracesHandler {
+func newTracesHandler(s *Aperture) *tracesHandler {
 	if len(s.config.Traces) == 0 {
 		return nil
 	}
@@ -75,6 +81,7 @@ func newTracesHandler(s *Shotel) *tracesHandler {
 		stopCleanup:   make(chan struct{}),
 		maxTimeout:    maxTimeout,
 		contextKeys:   contextKeys,
+		internal:      s.internalObserver,
 	}
 
 	// Start cleanup goroutine
@@ -111,6 +118,11 @@ func (th *tracesHandler) cleanupStaleSpans() {
 	for id, pending := range th.pendingStarts {
 		age := now.Sub(pending.receivedAt)
 		if age > th.maxTimeout {
+			th.internal.emit(pending.startCtx, SignalTraceExpired,
+				internalCorrelationID.Field(pending.correlationID),
+				internalSpanName.Field(pending.spanName),
+				internalReason.Field("end event not received"),
+			)
 			delete(th.pendingStarts, id)
 		}
 	}
@@ -119,6 +131,11 @@ func (th *tracesHandler) cleanupStaleSpans() {
 	for id, pending := range th.pendingEnds {
 		age := now.Sub(pending.receivedAt)
 		if age > th.maxTimeout {
+			th.internal.emit(pending.endCtx, SignalTraceExpired,
+				internalCorrelationID.Field(pending.correlationID),
+				internalSpanName.Field(pending.spanName),
+				internalReason.Field("start event not received"),
+			)
 			delete(th.pendingEnds, id)
 		}
 	}
@@ -168,20 +185,26 @@ func (th *tracesHandler) handleEvent(ctx context.Context, e *capitan.Event) {
 
 // handleStart stores the start event data or creates span if end already received.
 func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc TraceConfig) {
-	// Extract correlation ID from event
-	correlationID := th.extractCorrelationID(e, tc.CorrelationKey)
-	if correlationID == "" {
-		return // No correlation ID, cannot track
-	}
-
-	// Create composite key to prevent collisions between different trace configs
-	compositeKey := th.makeCompositeKey(correlationID, tc.Start, tc.End)
-
-	// Determine span name
+	// Determine span name for diagnostics
 	spanName := tc.SpanName
 	if spanName == "" {
 		spanName = tc.Start.Name()
 	}
+
+	// Extract correlation ID from event
+	correlationID := th.extractCorrelationID(e, tc.CorrelationKey)
+	if correlationID == "" {
+		// Emit diagnostic for missing correlation ID
+		th.internal.emit(ctx, SignalTraceCorrelationMissing,
+			internalSignal.Field(e.Signal().Name()),
+			internalSpanName.Field(spanName),
+			internalCorrelationKey.Field(tc.CorrelationKey.Name()),
+		)
+		return
+	}
+
+	// Create composite key to prevent collisions between different trace configs
+	compositeKey := th.makeCompositeKey(correlationID, tc.Start, tc.End)
 
 	th.mu.Lock()
 	defer th.mu.Unlock()
@@ -209,18 +232,31 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 
 	// No end yet - store start event data
 	th.pendingStarts[compositeKey] = &pendingSpan{
-		startTime:  e.Timestamp(),
-		startCtx:   ctx,
-		spanName:   spanName,
-		receivedAt: time.Now(),
+		startTime:     e.Timestamp(),
+		startCtx:      ctx,
+		spanName:      spanName,
+		correlationID: correlationID,
+		receivedAt:    time.Now(),
 	}
 }
 
 // handleEnd stores the end event data or creates span if start already received.
 func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc TraceConfig) {
+	// Determine span name for diagnostics
+	spanName := tc.SpanName
+	if spanName == "" {
+		spanName = tc.Start.Name()
+	}
+
 	// Extract correlation ID from event
 	correlationID := th.extractCorrelationID(e, tc.CorrelationKey)
 	if correlationID == "" {
+		// Emit diagnostic for missing correlation ID
+		th.internal.emit(ctx, SignalTraceCorrelationMissing,
+			internalSignal.Field(e.Signal().Name()),
+			internalSpanName.Field(spanName),
+			internalCorrelationKey.Field(tc.CorrelationKey.Name()),
+		)
 		return
 	}
 
@@ -253,9 +289,11 @@ func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc Tra
 
 	// No start yet - store end event data
 	th.pendingEnds[compositeKey] = &pendingEnd{
-		endTime:    e.Timestamp(),
-		endCtx:     ctx,
-		receivedAt: time.Now(),
+		endTime:       e.Timestamp(),
+		endCtx:        ctx,
+		correlationID: correlationID,
+		spanName:      spanName,
+		receivedAt:    time.Now(),
 	}
 }
 

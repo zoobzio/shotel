@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -72,7 +72,7 @@ func TestCapitanObserver_LogWhitelist(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -97,7 +97,7 @@ func TestCapitanObserver_NoWhitelist(t *testing.T) {
 	// No whitelist - all events should be logged
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -129,7 +129,7 @@ func TestCapitanObserver_EmptyWhitelist(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -151,7 +151,7 @@ func TestCapitanObserver_Close(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 
 	// Close should not panic
@@ -196,7 +196,7 @@ func TestCapitanObserver_MetricsAndTracesIntegration(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -220,7 +220,7 @@ func TestCapitanObserver_SeverityPropagation(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 

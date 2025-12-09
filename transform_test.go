@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -18,7 +18,7 @@ func TestFieldsToAttributes(t *testing.T) {
 		name     string
 		fields   []capitan.Field
 		wantLen  int
-		validate func(t *testing.T, attrs []log.KeyValue)
+		validate func(t *testing.T, result transformResult)
 	}{
 		{
 			name:    "empty fields",
@@ -31,9 +31,9 @@ func TestFieldsToAttributes(t *testing.T) {
 				capitan.NewStringKey("msg").Field("hello"),
 			},
 			wantLen: 1,
-			validate: func(t *testing.T, attrs []log.KeyValue) {
-				if attrs[0].Key != "msg" {
-					t.Errorf("expected key 'msg', got %q", attrs[0].Key)
+			validate: func(t *testing.T, result transformResult) {
+				if result.attrs[0].Key != "msg" {
+					t.Errorf("expected key 'msg', got %q", result.attrs[0].Key)
 				}
 			},
 		},
@@ -76,9 +76,9 @@ func TestFieldsToAttributes(t *testing.T) {
 				capitan.NewTimeKey("timestamp").Field(now),
 			},
 			wantLen: 1,
-			validate: func(t *testing.T, attrs []log.KeyValue) {
-				if attrs[0].Key != "timestamp" {
-					t.Errorf("expected key 'timestamp', got %q", attrs[0].Key)
+			validate: func(t *testing.T, result transformResult) {
+				if result.attrs[0].Key != "timestamp" {
+					t.Errorf("expected key 'timestamp', got %q", result.attrs[0].Key)
 				}
 			},
 		},
@@ -102,9 +102,9 @@ func TestFieldsToAttributes(t *testing.T) {
 				capitan.NewErrorKey("err").Field(testErr),
 			},
 			wantLen: 1,
-			validate: func(t *testing.T, attrs []log.KeyValue) {
-				if attrs[0].Key != "err" {
-					t.Errorf("expected key 'err', got %q", attrs[0].Key)
+			validate: func(t *testing.T, result transformResult) {
+				if result.attrs[0].Key != "err" {
+					t.Errorf("expected key 'err', got %q", result.attrs[0].Key)
 				}
 			},
 		},
@@ -129,14 +129,14 @@ func TestFieldsToAttributes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			attrs := fieldsToAttributes(tt.fields)
+			result := fieldsToAttributes(tt.fields, nil)
 
-			if len(attrs) != tt.wantLen {
-				t.Errorf("expected %d attributes, got %d", tt.wantLen, len(attrs))
+			if len(result.attrs) != tt.wantLen {
+				t.Errorf("expected %d attributes, got %d", tt.wantLen, len(result.attrs))
 			}
 
 			if tt.validate != nil {
-				tt.validate(t, attrs)
+				tt.validate(t, result)
 			}
 		})
 	}
@@ -161,16 +161,16 @@ func TestFieldsToAttributesAllTypes(t *testing.T) {
 		capitan.NewErrorKey("error").Field(errors.New("err")),
 	}
 
-	attrs := fieldsToAttributes(fields)
+	result := fieldsToAttributes(fields, nil)
 
 	// All 14 built-in types should be converted
-	if len(attrs) != 14 {
-		t.Errorf("expected 14 attributes, got %d", len(attrs))
+	if len(result.attrs) != 14 {
+		t.Errorf("expected 14 attributes, got %d", len(result.attrs))
 	}
 
 	// Verify keys are preserved
 	keys := make(map[string]bool)
-	for _, attr := range attrs {
+	for _, attr := range result.attrs {
 		keys[attr.Key] = true
 	}
 

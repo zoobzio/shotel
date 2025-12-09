@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func TestTraceSpanCleanup(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -133,7 +133,7 @@ func TestTraceSpanCompletesBeforeTimeout(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -142,7 +142,7 @@ func TestTraceSpanCompletesBeforeTimeout(t *testing.T) {
 	wg.Add(2)
 	listener := cap.Observe(func(ctx context.Context, e *capitan.Event) {
 		if e.Signal() == requestStarted || e.Signal() == requestCompleted {
-			// Give shotel time to process before we signal done
+			// Give aperture time to process before we signal done
 			time.Sleep(10 * time.Millisecond)
 			wg.Done()
 		}
@@ -192,7 +192,7 @@ func TestTraceDefaultTimeout(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -229,15 +229,15 @@ func TestTraceCloseEndsAllSpans(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 
-	// Add listener AFTER shotel to ensure shotel processes first
+	// Add listener AFTER aperture to ensure aperture processes first
 	var wg sync.WaitGroup
 	wg.Add(3)
 	listener := cap.Observe(func(ctx context.Context, e *capitan.Event) {
 		if e.Signal() == requestStarted {
-			// Give shotel time to process before we signal done
+			// Give aperture time to process before we signal done
 			time.Sleep(10 * time.Millisecond)
 			wg.Done()
 		}
@@ -309,7 +309,7 @@ func TestTraceCompositeKeyPreventsCollisions(t *testing.T) {
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("failed to create Shotel: %v", err)
+		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 

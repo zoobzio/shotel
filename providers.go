@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
@@ -15,14 +15,32 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.28.0"
 )
 
-// Providers holds configured OTEL providers for logs, metrics, and traces.
+// Providers holds configured OTEL SDK providers for logs, metrics, and traces.
+//
+// Use [DefaultProviders] for a pre-configured setup, or construct manually
+// for full control over exporters, batching, and sampling.
+//
+// Always call [Providers.Shutdown] before application exit to flush pending
+// telemetry data.
 type Providers struct {
-	Log   *log.LoggerProvider
+	// Log provides OTEL loggers. Pass to [New] as the logProvider parameter.
+	Log *log.LoggerProvider
+
+	// Meter provides OTEL meters. Pass to [New] as the meterProvider parameter.
 	Meter *metric.MeterProvider
+
+	// Trace provides OTEL tracers. Pass to [New] as the traceProvider parameter.
 	Trace *trace.TracerProvider
 }
 
-// Shutdown gracefully shuts down all providers.
+// Shutdown gracefully shuts down all providers, flushing any pending telemetry.
+//
+// Call this before application exit, typically via defer:
+//
+//	providers, _ := aperture.DefaultProviders(ctx, "my-service", "v1.0.0", "localhost:4318")
+//	defer providers.Shutdown(ctx)
+//
+// Returns an error if any provider fails to shutdown cleanly.
 func (p *Providers) Shutdown(ctx context.Context) error {
 	var errs []error
 
@@ -62,13 +80,13 @@ func (p *Providers) Shutdown(ctx context.Context) error {
 //
 // Example:
 //
-//	providers, err := shotel.DefaultProviders(ctx, "my-service", "v1.0.0", "localhost:4318")
+//	providers, err := aperture.DefaultProviders(ctx, "my-service", "v1.0.0", "localhost:4318")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //	defer providers.Shutdown(ctx)
 //
-//	sh, err := shotel.New(capitan.Default(), providers.Log, providers.Meter, providers.Trace, nil)
+//	sh, err := aperture.New(capitan.Default(), providers.Log, providers.Meter, providers.Trace, nil)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}

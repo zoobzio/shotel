@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"bytes"
@@ -26,7 +26,7 @@ func TestStdoutLogging(t *testing.T) {
 	testSignal := capitan.NewSignal("test.signal", "Test signal description")
 	testKey := capitan.NewStringKey("test_key")
 
-	// Create shotel with stdout logging enabled
+	// Create aperture with stdout logging enabled
 	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("Failed to create providers: %v", err)
@@ -39,7 +39,7 @@ func TestStdoutLogging(t *testing.T) {
 
 	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("Failed to create shotel: %v", err)
+		t.Fatalf("Failed to create aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -83,7 +83,7 @@ func TestStdoutLoggingDisabled(t *testing.T) {
 	c := capitan.New()
 	testSignal := capitan.NewSignal("test.signal", "Test signal description")
 
-	// Create shotel with stdout logging disabled
+	// Create aperture with stdout logging disabled
 	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("Failed to create providers: %v", err)
@@ -96,7 +96,7 @@ func TestStdoutLoggingDisabled(t *testing.T) {
 
 	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("Failed to create shotel: %v", err)
+		t.Fatalf("Failed to create aperture: %v", err)
 	}
 	defer sh.Close()
 
@@ -177,7 +177,7 @@ func TestStdoutLoggerSeverityMapping(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			// Create shotel with stdout logging
+			// Create aperture with stdout logging
 			pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 			if err != nil {
 				t.Fatalf("Failed to create providers: %v", err)
@@ -190,7 +190,7 @@ func TestStdoutLoggerSeverityMapping(t *testing.T) {
 
 			sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
 			if err != nil {
-				t.Fatalf("Failed to create shotel: %v", err)
+				t.Fatalf("Failed to create aperture: %v", err)
 			}
 			defer sh.Close()
 
@@ -233,7 +233,7 @@ func TestStdoutLoggingWithContextExtraction(t *testing.T) {
 	c := capitan.New()
 	testSignal := capitan.NewSignal("test.signal", "Test signal with context")
 
-	// Create shotel with stdout logging and context extraction
+	// Create aperture with stdout logging and context extraction
 	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("Failed to create providers: %v", err)
@@ -251,7 +251,7 @@ func TestStdoutLoggingWithContextExtraction(t *testing.T) {
 
 	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {
-		t.Fatalf("Failed to create shotel: %v", err)
+		t.Fatalf("Failed to create aperture: %v", err)
 	}
 	defer sh.Close()
 

@@ -1,4 +1,4 @@
-package shotel
+package aperture
 
 import (
 	"context"
