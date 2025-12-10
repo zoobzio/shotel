@@ -1,8 +1,8 @@
-# GoReleaser configuration for shotel - a Go library for event streaming
+# GoReleaser configuration for aperture - a Go library for event streaming
 
 version: 2
 
-project_name: shotel
+project_name: aperture
 
 dist: .dist
 
@@ -64,7 +64,7 @@ changelog:
 release:
   github:
     owner: zoobzio
-    name: shotel
+    name: aperture
 
   name_template: "{{ .ProjectName }} v{{ .Version }}"
   draft: false
@@ -72,14 +72,14 @@ release:
   mode: append
 
   header: |
-    ## shotel v{{ .Version }}
+    ## aperture v{{ .Version }}
 
     Type-safe event streaming for Go with zero dependencies.
 
     ### Installation
 
     ```bash
-    go get github.com/zoobzio/shotel@v{{ .Version }}
+    go get github.com/zoobzio/aperture@v{{ .Version }}
     ```
 
     ### Requirements
@@ -88,7 +88,7 @@ release:
   footer: |
     ---
 
-    **Full Documentation:** https://github.com/zoobzio/shotel/tree/v{{ .Version }}
+    **Full Documentation:** https://github.com/zoobzio/aperture/tree/v{{ .Version }}
 
     Thanks to all contributors!
 
