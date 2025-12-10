@@ -45,7 +45,7 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage.out
         flags: unit
-        name: shotel-coverage
+        name: aperture-coverage
         fail_ci_if_error: false
         verbose: true
 

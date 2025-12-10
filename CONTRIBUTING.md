@@ -1,6 +1,6 @@
-# Contributing to shotel
+# Contributing to aperture
 
-Thank you for your interest in contributing to shotel! This guide will help you get started.
+Thank you for your interest in contributing to aperture! This guide will help you get started.
 
 ## Code of Conduct
 
@@ -9,7 +9,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/yourusername/shotel.git`
+2. Clone your fork: `git clone https://github.com/yourusername/aperture.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Run tests: `go test ./...`
@@ -108,7 +108,7 @@ go test -bench=. ./...
 ## Project Structure
 
 ```
-shotel/
+aperture/
 ├── *.go              # Core library files
 ├── *_test.go         # Tests
 ├── providers/        # OTEL provider configuration
@@ -178,4 +178,4 @@ Every PR automatically shows the next version that will be created:
 - Check existing issues first
 - Be patient and respectful
 
-Thank you for contributing to shotel!
+Thank you for contributing to aperture!

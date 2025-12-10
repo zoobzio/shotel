@@ -5,7 +5,7 @@ all: test lint
 
 # Display help
 help:
-	@echo "shotel Development Commands"
+	@echo "aperture Development Commands"
 	@echo "=========================="
 	@echo ""
 	@echo "Testing & Quality:"

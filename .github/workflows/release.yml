@@ -92,7 +92,7 @@ jobs:
           sleep 30  # Wait for module proxy to update
           cd $(mktemp -d)
           go mod init test
-          go get github.com/zoobzio/shotel@${{ steps.get_tag.outputs.TAG }}
+          go get github.com/zoobzio/aperture@${{ steps.get_tag.outputs.TAG }}
 
       - name: Release summary
         run: |
@@ -100,5 +100,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Installation:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "go get github.com/zoobzio/shotel@${{ steps.get_tag.outputs.TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "go get github.com/zoobzio/aperture@${{ steps.get_tag.outputs.TAG }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
