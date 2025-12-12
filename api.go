@@ -7,10 +7,12 @@
 //
 // # Basic Usage
 //
-//	providers, _ := aperture.DefaultProviders(ctx, "my-service", "v1.0.0", "localhost:4318")
-//	defer providers.Shutdown(ctx)
+//	// Configure OTEL providers (see go.opentelemetry.io/otel/sdk)
+//	logProvider := log.NewLoggerProvider(...)
+//	meterProvider := metric.NewMeterProvider(...)
+//	traceProvider := trace.NewTracerProvider(...)
 //
-//	sh, _ := aperture.New(capitan.Default(), providers.Log, providers.Meter, providers.Trace, nil)
+//	sh, _ := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider, nil)
 //	defer sh.Close()
 //
 // # Configuration
@@ -81,17 +83,6 @@ type Aperture struct {
 //   - meterProvider: OTEL MeterProvider (required)
 //   - traceProvider: OTEL TracerProvider (required)
 //   - config: Optional configuration (pass nil for defaults)
-//
-// Example with providers package:
-//
-//	providers, err := providers.Default(ctx, "my-service", "v1.0.0", "localhost:4318")
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	defer providers.Shutdown(ctx)
-//
-//	sh := aperture.New(capitan.Default(), providers.Log, providers.Meter, providers.Trace, nil)
-//	defer sh.Close()
 //
 // Example with configuration:
 //

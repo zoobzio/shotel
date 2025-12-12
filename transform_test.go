@@ -591,3 +591,85 @@ func TestExtractContextValuesForMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractContextValuesForMetrics_AllTypes(t *testing.T) {
+	// Test all supported type branches
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, ctxKeyString("string"), "value")
+	ctx = context.WithValue(ctx, ctxKeyString("int"), int(1))
+	ctx = context.WithValue(ctx, ctxKeyString("int32"), int32(2))
+	ctx = context.WithValue(ctx, ctxKeyString("int64"), int64(3))
+	ctx = context.WithValue(ctx, ctxKeyString("uint"), uint(4))
+	ctx = context.WithValue(ctx, ctxKeyString("uint32"), uint32(5))
+	ctx = context.WithValue(ctx, ctxKeyString("uint64"), uint64(6))
+	ctx = context.WithValue(ctx, ctxKeyString("float32"), float32(7.5))
+	ctx = context.WithValue(ctx, ctxKeyString("float64"), float64(8.5))
+	ctx = context.WithValue(ctx, ctxKeyString("bool"), true)
+	ctx = context.WithValue(ctx, ctxKeyString("bytes"), []byte("binary"))
+	ctx = context.WithValue(ctx, ctxKeyString("unsupported"), struct{ Name string }{Name: "test"})
+
+	keys := []ContextKey{
+		{Key: ctxKeyString("string"), Name: "string"},
+		{Key: ctxKeyString("int"), Name: "int"},
+		{Key: ctxKeyString("int32"), Name: "int32"},
+		{Key: ctxKeyString("int64"), Name: "int64"},
+		{Key: ctxKeyString("uint"), Name: "uint"},
+		{Key: ctxKeyString("uint32"), Name: "uint32"},
+		{Key: ctxKeyString("uint64"), Name: "uint64"},
+		{Key: ctxKeyString("float32"), Name: "float32"},
+		{Key: ctxKeyString("float64"), Name: "float64"},
+		{Key: ctxKeyString("bool"), Name: "bool"},
+		{Key: ctxKeyString("bytes"), Name: "bytes"},
+		{Key: ctxKeyString("unsupported"), Name: "unsupported"}, // Should be skipped
+	}
+
+	attrs := extractContextValuesForMetrics(ctx, keys)
+
+	// 11 supported types, 1 unsupported (skipped)
+	if len(attrs) != 11 {
+		t.Errorf("expected 11 metric attributes, got %d", len(attrs))
+	}
+
+	// Verify each type was converted correctly
+	attrMap := make(map[string]interface{})
+	for _, attr := range attrs {
+		attrMap[string(attr.Key)] = attr.Value.AsInterface()
+	}
+
+	if _, ok := attrMap["string"]; !ok {
+		t.Error("missing string attribute")
+	}
+	if _, ok := attrMap["int"]; !ok {
+		t.Error("missing int attribute")
+	}
+	if _, ok := attrMap["int32"]; !ok {
+		t.Error("missing int32 attribute")
+	}
+	if _, ok := attrMap["int64"]; !ok {
+		t.Error("missing int64 attribute")
+	}
+	if _, ok := attrMap["uint"]; !ok {
+		t.Error("missing uint attribute")
+	}
+	if _, ok := attrMap["uint32"]; !ok {
+		t.Error("missing uint32 attribute")
+	}
+	if _, ok := attrMap["uint64"]; !ok {
+		t.Error("missing uint64 attribute")
+	}
+	if _, ok := attrMap["float32"]; !ok {
+		t.Error("missing float32 attribute")
+	}
+	if _, ok := attrMap["float64"]; !ok {
+		t.Error("missing float64 attribute")
+	}
+	if _, ok := attrMap["bool"]; !ok {
+		t.Error("missing bool attribute")
+	}
+	if _, ok := attrMap["bytes"]; !ok {
+		t.Error("missing bytes attribute")
+	}
+	if _, ok := attrMap["unsupported"]; ok {
+		t.Error("unsupported type should have been skipped")
+	}
+}

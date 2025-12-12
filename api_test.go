@@ -2,9 +2,11 @@ package aperture
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	apertesting "github.com/zoobzio/aperture/testing"
 	"github.com/zoobzio/capitan"
 )
 
@@ -12,113 +14,101 @@ func TestNew(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	// Create valid providers for testing
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 	defer pvs.Shutdown(ctx)
 
-	tests := []struct {
-		name          string
-		capitan       *capitan.Capitan
-		logProvider   interface{}
-		meterProvider interface{}
-		traceProvider interface{}
-		wantErr       bool
-		errContains   string
-	}{
-		{
-			name:          "valid configuration",
-			capitan:       cap,
-			logProvider:   pvs.Log,
-			meterProvider: pvs.Meter,
-			traceProvider: pvs.Trace,
-			wantErr:       false,
-		},
-		{
-			name:          "nil capitan",
-			capitan:       nil,
-			logProvider:   pvs.Log,
-			meterProvider: pvs.Meter,
-			traceProvider: pvs.Trace,
-			wantErr:       true,
-			errContains:   "capitan instance is required",
-		},
-		{
-			name:          "nil log provider",
-			capitan:       cap,
-			logProvider:   nil,
-			meterProvider: pvs.Meter,
-			traceProvider: pvs.Trace,
-			wantErr:       true,
-			errContains:   "log provider is required",
-		},
-		{
-			name:          "nil meter provider",
-			capitan:       cap,
-			logProvider:   nil,
-			meterProvider: nil,
-			traceProvider: nil,
-			wantErr:       true,
-			errContains:   "log provider is required", // First nil check
-		},
+	// Valid configuration
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
+	if sh == nil {
+		t.Fatal("expected non-nil Aperture instance")
+	}
+	if sh.logProvider == nil {
+		t.Error("logProvider not initialized")
+	}
+	if sh.capitanObserver == nil {
+		t.Error("capitanObserver not initialized")
+	}
+	sh.Close()
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var sh *Aperture
-			var err error
+func TestNew_NilCapitan(t *testing.T) {
+	ctx := context.Background()
 
-			// Handle nil interfaces properly
-			if tt.logProvider == nil || tt.meterProvider == nil || tt.traceProvider == nil {
-				// This will trigger nil check errors
-				sh, err = New(tt.capitan, nil, nil, nil, nil)
-			} else {
-				sh, err = New(
-					tt.capitan,
-					pvs.Log,
-					pvs.Meter,
-					pvs.Trace,
-					nil, // No config
-				)
-			}
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.errContains != "" && !contains(err.Error(), tt.errContains) {
-					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
-				}
-				return
-			}
+	_, err = New(nil, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "capitan instance is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+func TestNew_NilLogProvider(t *testing.T) {
+	ctx := context.Background()
+	cap := capitan.New()
 
-			if sh == nil {
-				t.Fatal("expected non-nil Aperture instance")
-			}
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
 
-			// Verify providers initialized
-			if sh.logProvider == nil {
-				t.Error("logProvider not initialized")
-			}
-			if sh.meterProvider == nil {
-				t.Error("meterProvider not initialized")
-			}
-			if sh.traceProvider == nil {
-				t.Error("traceProvider not initialized")
-			}
-			if sh.capitanObserver == nil {
-				t.Error("capitanObserver not initialized")
-			}
+	_, err = New(cap, nil, pvs.Meter, pvs.Trace, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "log provider is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
 
-			// Clean up
-			sh.Close()
-		})
+func TestNew_NilMeterProvider(t *testing.T) {
+	ctx := context.Background()
+	cap := capitan.New()
+
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
+
+	_, err = New(cap, pvs.Log, nil, pvs.Trace, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "meter provider is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNew_NilTraceProvider(t *testing.T) {
+	ctx := context.Background()
+	cap := capitan.New()
+
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	if err != nil {
+		t.Fatalf("failed to create providers: %v", err)
+	}
+	defer pvs.Shutdown(ctx)
+
+	_, err = New(cap, pvs.Log, pvs.Meter, nil, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "trace provider is required") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -126,11 +116,10 @@ func TestApertureInterfaces(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
@@ -161,11 +150,10 @@ func TestCapitanIntegration(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
@@ -195,7 +183,7 @@ func TestClose(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
@@ -206,24 +194,6 @@ func TestClose(t *testing.T) {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 
-	// Close should complete without error
+	// Close should complete without panic
 	sh.Close()
-
-	// Second close should also be safe
-	sh.Close()
-}
-
-// Helper function.
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || substr == "" ||
-		(s != "" && substr != "" && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

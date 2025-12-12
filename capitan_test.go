@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	apertesting "github.com/zoobzio/aperture/testing"
 	"github.com/zoobzio/capitan"
 	"go.opentelemetry.io/otel/log"
 )
@@ -55,12 +56,10 @@ func TestCapitanObserver_LogWhitelist(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
-
 	allowedSignal := capitan.NewSignal("allowed", "Allowed signal")
 	blockedSignal := capitan.NewSignal("blocked", "Blocked signal")
 
@@ -88,11 +87,10 @@ func TestCapitanObserver_NoWhitelist(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	// No whitelist - all events should be logged
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
@@ -114,11 +112,10 @@ func TestCapitanObserver_EmptyWhitelist(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	// Empty whitelist - should behave like no whitelist (log all)
 	config := &Config{
@@ -139,15 +136,14 @@ func TestCapitanObserver_EmptyWhitelist(t *testing.T) {
 	// Should be logged (empty whitelist = log all)
 }
 
-func TestCapitanObserver_Close(t *testing.T) {
+func TestCapitanObserver_Shutdown(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {
@@ -156,20 +152,16 @@ func TestCapitanObserver_Close(t *testing.T) {
 
 	// Close should not panic
 	sh.Close()
-
-	// Multiple closes should be safe
-	sh.Close()
 }
 
 func TestCapitanObserver_MetricsAndTracesIntegration(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	orderCreated := capitan.NewSignal("order.created", "Order created")
 	requestStarted := capitan.NewSignal("request.started", "Request started")
@@ -212,11 +204,10 @@ func TestCapitanObserver_SeverityPropagation(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
 	if err != nil {

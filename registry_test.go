@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	apertesting "github.com/zoobzio/aperture/testing"
 	"github.com/zoobzio/capitan"
-
 	"go.opentelemetry.io/otel/log"
 )
 
@@ -102,11 +102,10 @@ func TestCustomTransformerIntegration(t *testing.T) {
 		},
 	}
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
 	if err != nil {

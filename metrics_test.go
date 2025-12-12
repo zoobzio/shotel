@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	apertesting "github.com/zoobzio/aperture/testing"
 	"github.com/zoobzio/capitan"
 )
 
@@ -13,11 +14,10 @@ func TestMetricTypeCounter(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	orderCreated := capitan.NewSignal("order.created", "Order Created")
 
@@ -51,11 +51,10 @@ func TestMetricTypeGaugeInt64(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	cpuUsage := capitan.NewSignal("system.cpu.usage", "System Cpu Usage")
 	usageKey := capitan.NewInt64Key("percent")
@@ -90,11 +89,10 @@ func TestMetricTypeGaugeFloat64(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	temperature := capitan.NewSignal("system.temperature", "System Temperature")
 	tempKey := capitan.NewFloat64Key("celsius")
@@ -127,11 +125,10 @@ func TestMetricTypeHistogramDuration(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	durationKey := capitan.NewDurationKey("duration")
@@ -167,11 +164,10 @@ func TestMetricTypeHistogramInt64(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	messageReceived := capitan.NewSignal("message.received", "Message Received")
 	sizeKey := capitan.NewInt64Key("size_bytes")
@@ -205,11 +201,10 @@ func TestMetricTypeUpDownCounterInt64(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	queueDepth := capitan.NewSignal("queue.depth.changed", "Queue Depth Changed")
 	deltaKey := capitan.NewInt64Key("delta")
@@ -244,11 +239,10 @@ func TestMetricTypeUpDownCounterFloat64(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	balanceChanged := capitan.NewSignal("balance.changed", "Balance Changed")
 	amountKey := capitan.NewFloat64Key("amount")
@@ -282,11 +276,10 @@ func TestMetricConfigValidation(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	tests := []struct {
 		name    string
@@ -354,11 +347,10 @@ func TestMixedMetricTypes(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	// Define multiple signals with different metric types
 	orderCreated := capitan.NewSignal("order.created", "Order Created")
@@ -418,11 +410,10 @@ func TestDefaultMetricTypeIsCounter(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("test.signal", "Test Signal")
 
@@ -450,11 +441,10 @@ func TestExtractNumericValue_AllIntegerTypes(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("numeric.test", "Numeric Test")
 
@@ -502,11 +492,10 @@ func TestExtractNumericValue_AllFloatTypes(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("float.test", "Float Test")
 
@@ -534,11 +523,10 @@ func TestRecordHistogram_FloatVariant(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("histogram.float.test", "Histogram Float Test")
 	valueKey := capitan.NewFloat64Key("value")
@@ -573,11 +561,10 @@ func TestExtractNumericValue_MissingKey(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("missing.key.test", "Missing Key Test")
 	valueKey := capitan.NewInt64Key("value")
@@ -655,11 +642,10 @@ func TestExtractNumericValue_NilKey(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("test.signal", "Test Signal")
 	intKey := capitan.NewInt64Key("value")
@@ -703,11 +689,10 @@ func TestCreateInstrumentErrors(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	testSignal := capitan.NewSignal("test.signal", "Test Signal")
 	stringKey := capitan.NewStringKey("value")

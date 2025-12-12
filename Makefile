@@ -1,4 +1,4 @@
-.PHONY: test bench lint coverage clean all help install-tools ci
+.PHONY: test test-unit test-integration bench lint coverage clean all help install-tools ci
 
 # Default target
 all: test lint
@@ -9,28 +9,40 @@ help:
 	@echo "=========================="
 	@echo ""
 	@echo "Testing & Quality:"
-	@echo "  make test         - Run tests with race detector"
-	@echo "  make bench        - Run benchmarks"
-	@echo "  make lint         - Run linters"
-	@echo "  make lint-fix     - Run linters with auto-fix"
-	@echo "  make coverage     - Generate coverage report (HTML)"
-	@echo "  make check        - Run tests and lint (quick check)"
-	@echo "  make ci           - Full CI simulation (tests + quality checks)"
+	@echo "  make test             - Run all tests with race detector"
+	@echo "  make test-unit        - Run unit tests only (root + testing/)"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make bench            - Run benchmarks"
+	@echo "  make lint             - Run linters"
+	@echo "  make lint-fix         - Run linters with auto-fix"
+	@echo "  make coverage         - Generate coverage report (HTML)"
+	@echo "  make check            - Run tests and lint (quick check)"
+	@echo "  make ci               - Full CI simulation (tests + quality checks)"
 	@echo ""
 	@echo "Other:"
 	@echo "  make install-tools - Install required development tools"
 	@echo "  make clean         - Clean generated files"
 	@echo "  make all           - Run tests and lint (default)"
 
-# Run tests with race detector
+# Run all tests with race detector
 test:
-	@echo "Running tests..."
+	@echo "Running all tests..."
 	@go test -v -race ./...
+
+# Run unit tests only (root package + testing helpers)
+test-unit:
+	@echo "Running unit tests..."
+	@go test -v -race . ./testing
+
+# Run integration tests
+test-integration:
+	@echo "Running integration tests..."
+	@go test -v -race ./testing/integration/...
 
 # Run benchmarks
 bench:
 	@echo "Running benchmarks..."
-	@go test -bench=. -benchmem -benchtime=100ms -timeout=5m .
+	@go test -bench=. -benchmem -benchtime=100ms -timeout=5m ./testing/benchmarks/...
 
 # Run linters
 lint:

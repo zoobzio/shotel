@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	apertesting "github.com/zoobzio/aperture/testing"
 	"github.com/zoobzio/capitan"
 )
 
@@ -13,11 +14,10 @@ func TestTraceSpanCleanup(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	requestStarted := capitan.NewSignal("request.started", "Request Started")
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
@@ -109,11 +109,10 @@ func TestTraceSpanCompletesBeforeTimeout(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	requestStarted := capitan.NewSignal("request.started", "Request Started")
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
@@ -169,11 +168,10 @@ func TestTraceDefaultTimeout(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	requestStarted := capitan.NewSignal("request.started", "Request Started")
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
@@ -206,11 +204,10 @@ func TestTraceCloseEndsAllSpans(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	requestStarted := capitan.NewSignal("request.started", "Request Started")
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
@@ -267,7 +264,7 @@ func TestTraceCloseEndsAllSpans(t *testing.T) {
 	th.mu.Unlock()
 
 	if remainingPending != 0 {
-		t.Errorf("expected 0 pending events after close, got %d", remainingPending)
+		t.Errorf("expected 0 pending events after shutdown, got %d", remainingPending)
 	}
 }
 
@@ -275,11 +272,10 @@ func TestTraceCompositeKeyPreventsCollisions(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
-	pvs, err := DefaultProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
+	pvs, err := apertesting.TestProviders(ctx, "test-service", "v1.0.0", "localhost:4318")
 	if err != nil {
 		t.Fatalf("failed to create providers: %v", err)
 	}
-	defer pvs.Shutdown(ctx)
 
 	// Define two different trace configs that will use the same correlation ID
 	dbQueryStarted := capitan.NewSignal("db.query.started", "Db Query Started")
