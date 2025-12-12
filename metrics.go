@@ -367,7 +367,7 @@ func extractNumericValue(e *capitan.Event, key capitan.Key) *numericValue {
 			}
 		case capitan.VariantUint:
 			if gf, ok := f.(capitan.GenericField[uint]); ok {
-				return &numericValue{intValue: int64(gf.Get())} //nolint:gosec // Intentional uint to int64 conversion for OTEL
+				return &numericValue{intValue: safeUintToInt64(gf.Get())}
 			}
 		case capitan.VariantUint32:
 			if gf, ok := f.(capitan.GenericField[uint32]); ok {
@@ -375,7 +375,7 @@ func extractNumericValue(e *capitan.Event, key capitan.Key) *numericValue {
 			}
 		case capitan.VariantUint64:
 			if gf, ok := f.(capitan.GenericField[uint64]); ok {
-				return &numericValue{intValue: int64(gf.Get())} //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+				return &numericValue{intValue: safeUint64ToInt64(gf.Get())}
 			}
 		case capitan.VariantFloat32:
 			if gf, ok := f.(capitan.GenericField[float32]); ok {

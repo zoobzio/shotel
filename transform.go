@@ -2,12 +2,31 @@ package aperture
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/zoobzio/capitan"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
 )
+
+// safeUintToInt64 converts uint to int64 with overflow protection.
+// Values exceeding math.MaxInt64 are clamped.
+func safeUintToInt64(v uint) int64 {
+	if v > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(v)
+}
+
+// safeUint64ToInt64 converts uint64 to int64 with overflow protection.
+// Values exceeding math.MaxInt64 are clamped.
+func safeUint64ToInt64(v uint64) int64 {
+	if v > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(v)
+}
 
 // transformResult holds the result of field transformation.
 type transformResult struct {
@@ -56,7 +75,7 @@ func fieldsToAttributes(fields []capitan.Field, transformers map[capitan.Variant
 
 		case capitan.VariantUint:
 			if gf, ok := f.(capitan.GenericField[uint]); ok {
-				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+				result.attrs = append(result.attrs, log.Int64(key, safeUintToInt64(gf.Get())))
 			}
 
 		case capitan.VariantUint32:
@@ -66,7 +85,7 @@ func fieldsToAttributes(fields []capitan.Field, transformers map[capitan.Variant
 
 		case capitan.VariantUint64:
 			if gf, ok := f.(capitan.GenericField[uint64]); ok {
-				result.attrs = append(result.attrs, log.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+				result.attrs = append(result.attrs, log.Int64(key, safeUint64ToInt64(gf.Get())))
 			}
 
 		case capitan.VariantFloat32:
@@ -155,7 +174,7 @@ func fieldsToMetricAttributes(fields []capitan.Field) []attribute.KeyValue {
 
 		case capitan.VariantUint:
 			if gf, ok := f.(capitan.GenericField[uint]); ok {
-				attrs = append(attrs, attribute.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+				attrs = append(attrs, attribute.Int64(key, safeUintToInt64(gf.Get())))
 			}
 
 		case capitan.VariantUint32:
@@ -165,7 +184,7 @@ func fieldsToMetricAttributes(fields []capitan.Field) []attribute.KeyValue {
 
 		case capitan.VariantUint64:
 			if gf, ok := f.(capitan.GenericField[uint64]); ok {
-				attrs = append(attrs, attribute.Int64(key, int64(gf.Get()))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+				attrs = append(attrs, attribute.Int64(key, safeUint64ToInt64(gf.Get())))
 			}
 
 		case capitan.VariantFloat32:
@@ -235,11 +254,11 @@ func extractContextValuesForLogs(ctx context.Context, keys []ContextKey) []log.K
 		case int64:
 			attrs = append(attrs, log.Int64(ck.Name, v))
 		case uint:
-			attrs = append(attrs, log.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+			attrs = append(attrs, log.Int64(ck.Name, safeUintToInt64(v)))
 		case uint32:
 			attrs = append(attrs, log.Int64(ck.Name, int64(v)))
 		case uint64:
-			attrs = append(attrs, log.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+			attrs = append(attrs, log.Int64(ck.Name, safeUint64ToInt64(v)))
 		case float32:
 			attrs = append(attrs, log.Float64(ck.Name, float64(v)))
 		case float64:
@@ -280,11 +299,11 @@ func extractContextValuesForMetrics(ctx context.Context, keys []ContextKey) []at
 		case int64:
 			attrs = append(attrs, attribute.Int64(ck.Name, v))
 		case uint:
-			attrs = append(attrs, attribute.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint to int64 conversion for OTEL
+			attrs = append(attrs, attribute.Int64(ck.Name, safeUintToInt64(v)))
 		case uint32:
 			attrs = append(attrs, attribute.Int64(ck.Name, int64(v)))
 		case uint64:
-			attrs = append(attrs, attribute.Int64(ck.Name, int64(v))) //nolint:gosec // Intentional uint64 to int64 conversion for OTEL
+			attrs = append(attrs, attribute.Int64(ck.Name, safeUint64ToInt64(v)))
 		case float32:
 			attrs = append(attrs, attribute.Float64(ck.Name, float64(v)))
 		case float64:

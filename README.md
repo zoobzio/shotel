@@ -39,7 +39,7 @@ traces:
 
 ```go
 // 3. Build and bridge
-schema, _ := aperture.LoadSchemaFromFile("observability.yaml")
+schema, _ := aperture.LoadSchemaFromYAML(configBytes)
 config, _ := registry.Build(schema)  // Validates references exist
 ap, _ := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider, config)
 ```
@@ -62,7 +62,7 @@ package main
 import (
     "context"
     "log"
-
+    "os"
     "time"
 
     "github.com/zoobzio/aperture"
@@ -87,7 +87,11 @@ func main() {
     registry.RegisterKey(orderID, duration)
 
     // Load configuration (could be from file, env, remote config...)
-    schema, err := aperture.LoadSchemaFromFile("observability.yaml")
+    configBytes, err := os.ReadFile("observability.yaml")
+    if err != nil {
+        log.Fatal(err)
+    }
+    schema, err := aperture.LoadSchemaFromYAML(configBytes)
     if err != nil {
         log.Fatal(err)
     }

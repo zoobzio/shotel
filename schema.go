@@ -3,7 +3,6 @@ package aperture
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,32 +23,6 @@ func LoadSchemaFromJSON(data []byte) (Schema, error) {
 		return Schema{}, fmt.Errorf("json unmarshal: %w", err)
 	}
 	return s, nil
-}
-
-// LoadSchemaFromFile loads a Schema from a file path.
-// Detects format by file extension (.yaml, .yml, .json).
-func LoadSchemaFromFile(path string) (Schema, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Schema{}, fmt.Errorf("read file: %w", err)
-	}
-
-	var ext string
-	switch {
-	case len(path) > 5 && path[len(path)-5:] == ".yaml":
-		ext = "yaml"
-	case len(path) > 4 && path[len(path)-4:] == ".yml":
-		ext = "yaml"
-	case len(path) > 5 && path[len(path)-5:] == ".json":
-		ext = "json"
-	}
-
-	switch ext {
-	case "json":
-		return LoadSchemaFromJSON(data)
-	default:
-		return LoadSchemaFromYAML(data)
-	}
 }
 
 // Schema is the serializable configuration for aperture.

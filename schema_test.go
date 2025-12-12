@@ -1,8 +1,6 @@
 package aperture
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -94,67 +92,6 @@ func TestLoadSchemaFromJSON_Invalid(t *testing.T) {
 	_, err := LoadSchemaFromJSON([]byte("{invalid json"))
 	if err == nil {
 		t.Error("expected error for invalid JSON")
-	}
-}
-
-func TestLoadSchemaFromFile(t *testing.T) {
-	dir := t.TempDir()
-
-	tests := []struct {
-		name     string
-		filename string
-		content  string
-		wantErr  bool
-	}{
-		{
-			name:     "yaml file",
-			filename: "config.yaml",
-			content:  "metrics:\n  - signal: Test\n    name: test\n",
-			wantErr:  false,
-		},
-		{
-			name:     "yml file",
-			filename: "config.yml",
-			content:  "metrics:\n  - signal: Test\n    name: test\n",
-			wantErr:  false,
-		},
-		{
-			name:     "json file",
-			filename: "config.json",
-			content:  `{"metrics": [{"signal": "Test", "name": "test"}]}`,
-			wantErr:  false,
-		},
-		{
-			name:     "unknown extension defaults to yaml",
-			filename: "config.txt",
-			content:  "metrics:\n  - signal: Test\n    name: test\n",
-			wantErr:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(dir, tt.filename)
-			if err := os.WriteFile(path, []byte(tt.content), 0o600); err != nil {
-				t.Fatalf("failed to write test file: %v", err)
-			}
-
-			schema, err := LoadSchemaFromFile(path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("LoadSchemaFromFile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && len(schema.Metrics) != 1 {
-				t.Errorf("expected 1 metric, got %d", len(schema.Metrics))
-			}
-		})
-	}
-}
-
-func TestLoadSchemaFromFile_NotFound(t *testing.T) {
-	_, err := LoadSchemaFromFile("/nonexistent/path/config.yaml")
-	if err == nil {
-		t.Error("expected error for nonexistent file")
 	}
 }
 
