@@ -2,6 +2,7 @@ package aperture
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"time"
 
@@ -30,21 +31,14 @@ func safeUint64ToInt64(v uint64) int64 {
 
 // transformResult holds the result of field transformation.
 type transformResult struct {
-	attrs   []log.KeyValue
-	skipped []skippedField
-}
-
-// skippedField records a field that could not be transformed.
-type skippedField struct {
-	key     string
-	variant string
+	attrs []log.KeyValue
 }
 
 // fieldsToAttributes transforms capitan fields to OTEL log attributes.
 //
-// Only built-in capitan field variants are supported. Custom field types
-// are skipped unless a transformer is provided.
-func fieldsToAttributes(fields []capitan.Field, transformers map[capitan.Variant]FieldTransformer) transformResult {
+// Built-in capitan field variants are converted to appropriate OTEL types.
+// Custom field types are JSON serialized as strings.
+func fieldsToAttributes(fields []capitan.Field) transformResult {
 	result := transformResult{
 		attrs: make([]log.KeyValue, 0, len(fields)),
 	}
@@ -126,22 +120,33 @@ func fieldsToAttributes(fields []capitan.Field, transformers map[capitan.Variant
 			}
 
 		default:
-			// Check for custom transformer
-			if transformer, ok := transformers[f.Variant()]; ok {
-				if customAttrs := transformer(f); len(customAttrs) > 0 {
-					result.attrs = append(result.attrs, customAttrs...)
-				}
-			} else {
-				// Record skipped field for diagnostics
-				result.skipped = append(result.skipped, skippedField{
-					key:     key,
-					variant: string(f.Variant()),
-				})
+			// Custom types: JSON serialize
+			if jsonStr := fieldToJSON(f); jsonStr != "" {
+				result.attrs = append(result.attrs, log.String(key, jsonStr))
 			}
 		}
 	}
 
 	return result
+}
+
+// fieldToJSON attempts to JSON serialize a field's value.
+// Returns empty string if serialization fails.
+func fieldToJSON(f capitan.Field) string {
+	// Try to get the underlying value via reflection on GenericField
+	// We use a type switch on common interface patterns
+	type valueGetter interface {
+		Value() any
+	}
+
+	if vg, ok := f.(valueGetter); ok {
+		if data, err := json.Marshal(vg.Value()); err == nil {
+			return string(data)
+		}
+	}
+
+	// Fallback: try to marshal the field itself (unlikely to work well)
+	return ""
 }
 
 // fieldsToMetricAttributes transforms capitan fields to OTEL metric attributes.
@@ -222,7 +227,11 @@ func fieldsToMetricAttributes(fields []capitan.Field) []attribute.KeyValue {
 				attrs = append(attrs, attribute.String(key, gf.Get().Error()))
 			}
 
-			// Custom types skipped for metrics
+		default:
+			// Custom types: JSON serialize for metrics too
+			if jsonStr := fieldToJSON(f); jsonStr != "" {
+				attrs = append(attrs, attribute.String(key, jsonStr))
+			}
 		}
 	}
 
@@ -267,7 +276,11 @@ func extractContextValuesForLogs(ctx context.Context, keys []ContextKey) []log.K
 			attrs = append(attrs, log.Bool(ck.Name, v))
 		case []byte:
 			attrs = append(attrs, log.Bytes(ck.Name, v))
-			// Skip unsupported types
+		default:
+			// Try JSON serialization for unknown types
+			if data, err := json.Marshal(v); err == nil {
+				attrs = append(attrs, log.String(ck.Name, string(data)))
+			}
 		}
 	}
 
@@ -312,7 +325,11 @@ func extractContextValuesForMetrics(ctx context.Context, keys []ContextKey) []at
 			attrs = append(attrs, attribute.Bool(ck.Name, v))
 		case []byte:
 			attrs = append(attrs, attribute.String(ck.Name, string(v)))
-			// Skip unsupported types
+		default:
+			// Try JSON serialization for unknown types
+			if data, err := json.Marshal(v); err == nil {
+				attrs = append(attrs, attribute.String(ck.Name, string(data)))
+			}
 		}
 	}
 

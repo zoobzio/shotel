@@ -138,10 +138,10 @@ func TestInternalObserver_EmitsEvents(t *testing.T) {
 	ctx := context.Background()
 
 	// Emit a diagnostic event
-	io.emit(ctx, SignalTransformSkipped,
-		internalFieldKey.Field("test_key"),
-		internalFieldVariant.Field("custom.Type"),
-		internalSignal.Field("test.signal"),
+	io.emit(ctx, SignalTraceExpired,
+		internalCorrelationID.Field("test-id"),
+		internalSpanName.Field("test-span"),
+		internalReason.Field("test reason"),
 	)
 
 	// Wait for the record with proper synchronization
@@ -158,19 +158,19 @@ func TestInternalObserver_EmitsEvents(t *testing.T) {
 	}
 
 	// Verify body is the signal description
-	if record.Body().AsString() != SignalTransformSkipped.Description() {
-		t.Errorf("expected body %q, got %q", SignalTransformSkipped.Description(), record.Body().AsString())
+	if record.Body().AsString() != SignalTraceExpired.Description() {
+		t.Errorf("expected body %q, got %q", SignalTraceExpired.Description(), record.Body().AsString())
 	}
 
 	// Verify attributes
-	if v := getAttributeValue(&record, "field_key"); v != "test_key" {
-		t.Errorf("expected field_key = 'test_key', got %q", v)
+	if v := getAttributeValue(&record, "correlation_id"); v != "test-id" {
+		t.Errorf("expected correlation_id = 'test-id', got %q", v)
 	}
-	if v := getAttributeValue(&record, "field_variant"); v != "custom.Type" {
-		t.Errorf("expected field_variant = 'custom.Type', got %q", v)
+	if v := getAttributeValue(&record, "span_name"); v != "test-span" {
+		t.Errorf("expected span_name = 'test-span', got %q", v)
 	}
-	if v := getAttributeValue(&record, "signal"); v != "test.signal" {
-		t.Errorf("expected signal = 'test.signal', got %q", v)
+	if v := getAttributeValue(&record, "reason"); v != "test reason" {
+		t.Errorf("expected reason = 'test reason', got %q", v)
 	}
 }
 
@@ -185,48 +185,6 @@ func TestInternalObserver_Close(t *testing.T) {
 	io.Close()
 }
 
-func TestTransformSkipped_EmittedOnUnknownType(t *testing.T) {
-	ctx := context.Background()
-	cap := capitan.New()
-
-	mockLog := newMockLogger()
-	provider := &mockLoggerProvider{logger: mockLog}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
-	if err != nil {
-		t.Fatalf("failed to create Aperture: %v", err)
-	}
-	defer sh.Close()
-
-	// Emit event with custom field type (not registered)
-	customVariant := capitan.Variant("test.UnknownType")
-	customKey := capitan.NewKey[struct{}]("unknown", customVariant)
-	testSignal := capitan.NewSignal("test.signal", "Test signal")
-
-	cap.Emit(ctx, testSignal, customKey.Field(struct{}{}))
-
-	// Wait for records - need sufficient time for double async hop
-	// We expect at least 2: one from the main log, one from internal diagnostic
-	records := mockLog.waitForRecords(2, 2*time.Second)
-
-	// Should have received a diagnostic event about the skipped field
-	record := findRecordWithSignal(records, SignalTransformSkipped.Name())
-	if record == nil {
-		t.Fatal("expected SignalTransformSkipped to be emitted for unknown field type")
-	}
-
-	// Verify the diagnostic contains correct information
-	if v := getAttributeValue(record, "field_key"); v != "unknown" {
-		t.Errorf("expected field_key = 'unknown', got %q", v)
-	}
-	if v := getAttributeValue(record, "field_variant"); v != "test.UnknownType" {
-		t.Errorf("expected field_variant = 'test.UnknownType', got %q", v)
-	}
-	if v := getAttributeValue(record, "signal"); v != "test.signal" {
-		t.Errorf("expected signal = 'test.signal', got %q", v)
-	}
-}
-
 func TestMetricValueMissing_EmittedOnMissingValue(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
@@ -235,27 +193,32 @@ func TestMetricValueMissing_EmittedOnMissingValue(t *testing.T) {
 	provider := &mockLoggerProvider{logger: mockLog}
 
 	// Configure a gauge metric that requires a value key
-	valueKey := capitan.NewInt64Key("value")
-	testSignal := capitan.NewSignal("test.metric.signal", "Test metric signal")
+	_ = capitan.NewInt64Key("value")
+	_ = capitan.NewSignal("test.metric.signal", "Test metric signal")
 
-	config := &Config{
-		Metrics: []MetricConfig{
-			{
-				Signal:   testSignal,
-				Name:     "test_gauge",
-				Type:     MetricTypeGauge,
-				ValueKey: valueKey,
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
+	schema := Schema{
+		Metrics: []MetricSchema{
+			{
+				Signal:   "test.metric.signal",
+				Name:     "test_gauge",
+				Type:     "gauge",
+				ValueKey: "value",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
 	// Emit event WITHOUT the required value key
+	testSignal := capitan.NewSignal("test.metric.signal", "Test metric signal")
 	cap.Emit(ctx, testSignal) // Missing valueKey field
 
 	// Wait for records - at least 2: main log + diagnostic
@@ -289,22 +252,26 @@ func TestMetricValueMissing_NotEmittedWhenValuePresent(t *testing.T) {
 	valueKey := capitan.NewInt64Key("value")
 	testSignal := capitan.NewSignal("test.metric.signal", "Test metric signal")
 
-	config := &Config{
-		Metrics: []MetricConfig{
-			{
-				Signal:   testSignal,
-				Name:     "test_gauge",
-				Type:     MetricTypeGauge,
-				ValueKey: valueKey,
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Metrics: []MetricSchema{
+			{
+				Signal:   "test.metric.signal",
+				Name:     "test_gauge",
+				Type:     "gauge",
+				ValueKey: "value",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit event WITH the required value key
 	cap.Emit(ctx, testSignal, valueKey.Field(int64(42)))
@@ -328,27 +295,31 @@ func TestTraceExpired_EmittedOnTimeout(t *testing.T) {
 	provider := &mockLoggerProvider{logger: mockLog}
 
 	startSignal := capitan.NewSignal("test.span.start", "Span start")
-	endSignal := capitan.NewSignal("test.span.end", "Span end")
+	_ = capitan.NewSignal("test.span.end", "Span end")
 	correlationKey := capitan.NewStringKey("trace_id")
 
-	// Use a very short timeout for testing
-	config := &Config{
-		Traces: []TraceConfig{
-			{
-				Start:          startSignal,
-				End:            endSignal,
-				CorrelationKey: &correlationKey,
-				SpanName:       "test-span",
-				SpanTimeout:    50 * time.Millisecond, // Very short for testing
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	// Use a very short timeout for testing
+	schema := Schema{
+		Traces: []TraceSchema{
+			{
+				Start:          "test.span.start",
+				End:            "test.span.end",
+				CorrelationKey: "trace_id",
+				SpanName:       "test-span",
+				SpanTimeout:    "50ms", // Very short for testing
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit only the start event (no matching end)
 	cap.Emit(ctx, startSignal, correlationKey.Field("test-correlation-123"))
@@ -391,27 +362,31 @@ func TestTraceExpired_PendingEnd(t *testing.T) {
 	mockLog := newMockLogger()
 	provider := &mockLoggerProvider{logger: mockLog}
 
-	startSignal := capitan.NewSignal("test.span.start", "Span start")
+	_ = capitan.NewSignal("test.span.start", "Span start")
 	endSignal := capitan.NewSignal("test.span.end", "Span end")
 	correlationKey := capitan.NewStringKey("trace_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
-			{
-				Start:          startSignal,
-				End:            endSignal,
-				CorrelationKey: &correlationKey,
-				SpanName:       "test-span",
-				SpanTimeout:    50 * time.Millisecond,
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Traces: []TraceSchema{
+			{
+				Start:          "test.span.start",
+				End:            "test.span.end",
+				CorrelationKey: "trace_id",
+				SpanName:       "test-span",
+				SpanTimeout:    "50ms",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit only the END event (no matching start - out of order arrival that never completes)
 	cap.Emit(ctx, endSignal, correlationKey.Field("orphan-end-456"))
@@ -444,23 +419,27 @@ func TestTraceExpired_NotEmittedWhenMatched(t *testing.T) {
 	endSignal := capitan.NewSignal("test.span.end", "Span end")
 	correlationKey := capitan.NewStringKey("trace_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
-			{
-				Start:          startSignal,
-				End:            endSignal,
-				CorrelationKey: &correlationKey,
-				SpanName:       "test-span",
-				SpanTimeout:    50 * time.Millisecond,
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Traces: []TraceSchema{
+			{
+				Start:          "test.span.start",
+				End:            "test.span.end",
+				CorrelationKey: "trace_id",
+				SpanName:       "test-span",
+				SpanTimeout:    "50ms",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit matching start and end events
 	cap.Emit(ctx, startSignal, correlationKey.Field("matched-789"))
@@ -484,11 +463,11 @@ func TestTraceExpired_NotEmittedWhenMatched(t *testing.T) {
 func TestAllMetricTypes_EmitDiagnosticOnMissingValue(t *testing.T) {
 	testCases := []struct {
 		name       string
-		metricType MetricType
+		metricType string
 	}{
-		{"UpDownCounter", MetricTypeUpDownCounter},
-		{"Gauge", MetricTypeGauge},
-		{"Histogram", MetricTypeHistogram},
+		{"UpDownCounter", "updowncounter"},
+		{"Gauge", "gauge"},
+		{"Histogram", "histogram"},
 	}
 
 	for _, tc := range testCases {
@@ -499,25 +478,29 @@ func TestAllMetricTypes_EmitDiagnosticOnMissingValue(t *testing.T) {
 			mockLog := newMockLogger()
 			provider := &mockLoggerProvider{logger: mockLog}
 
-			valueKey := capitan.NewInt64Key("value")
+			_ = capitan.NewInt64Key("value")
 			testSignal := capitan.NewSignal("test."+tc.name, "Test "+tc.name)
 
-			config := &Config{
-				Metrics: []MetricConfig{
-					{
-						Signal:   testSignal,
-						Name:     "test_" + tc.name,
-						Type:     tc.metricType,
-						ValueKey: valueKey,
-					},
-				},
-			}
-
-			sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+			sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 			if err != nil {
 				t.Fatalf("failed to create Aperture: %v", err)
 			}
 			defer sh.Close()
+
+			schema := Schema{
+				Metrics: []MetricSchema{
+					{
+						Signal:   "test." + tc.name,
+						Name:     "test_" + tc.name,
+						Type:     tc.metricType,
+						ValueKey: "value",
+					},
+				},
+			}
+			err = sh.Apply(schema)
+			if err != nil {
+				t.Fatalf("Apply failed: %v", err)
+			}
 
 			// Emit without value
 			cap.Emit(ctx, testSignal)
@@ -543,22 +526,26 @@ func TestCounter_NoDiagnosticEmitted(t *testing.T) {
 
 	testSignal := capitan.NewSignal("test.counter", "Test counter")
 
-	config := &Config{
-		Metrics: []MetricConfig{
-			{
-				Signal: testSignal,
-				Name:   "test_counter",
-				Type:   MetricTypeCounter,
-				// No ValueKey needed for counter
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Metrics: []MetricSchema{
+			{
+				Signal: "test.counter",
+				Name:   "test_counter",
+				Type:   "counter",
+				// No ValueKey needed for counter
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit counter event
 	cap.Emit(ctx, testSignal)
@@ -582,25 +569,29 @@ func TestTraceCorrelationMissing_EmittedOnMissingID(t *testing.T) {
 	provider := &mockLoggerProvider{logger: mockLog}
 
 	startSignal := capitan.NewSignal("test.span.start", "Span start")
-	endSignal := capitan.NewSignal("test.span.end", "Span end")
-	correlationKey := capitan.NewStringKey("trace_id")
+	_ = capitan.NewSignal("test.span.end", "Span end")
+	_ = capitan.NewStringKey("trace_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
-			{
-				Start:          startSignal,
-				End:            endSignal,
-				CorrelationKey: &correlationKey,
-				SpanName:       "test-span",
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Traces: []TraceSchema{
+			{
+				Start:          "test.span.start",
+				End:            "test.span.end",
+				CorrelationKey: "trace_id",
+				SpanName:       "test-span",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit start event WITHOUT the correlation key
 	cap.Emit(ctx, startSignal) // Missing trace_id field
@@ -633,26 +624,30 @@ func TestTraceCorrelationMissing_EmittedForEndEvent(t *testing.T) {
 	mockLog := newMockLogger()
 	provider := &mockLoggerProvider{logger: mockLog}
 
-	startSignal := capitan.NewSignal("test.span.start", "Span start")
+	_ = capitan.NewSignal("test.span.start", "Span start")
 	endSignal := capitan.NewSignal("test.span.end", "Span end")
-	correlationKey := capitan.NewStringKey("trace_id")
+	_ = capitan.NewStringKey("trace_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
-			{
-				Start:          startSignal,
-				End:            endSignal,
-				CorrelationKey: &correlationKey,
-				SpanName:       "test-span",
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Traces: []TraceSchema{
+			{
+				Start:          "test.span.start",
+				End:            "test.span.end",
+				CorrelationKey: "trace_id",
+				SpanName:       "test-span",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit end event WITHOUT the correlation key
 	cap.Emit(ctx, endSignal) // Missing trace_id field
@@ -681,22 +676,26 @@ func TestTraceCorrelationMissing_NotEmittedWhenPresent(t *testing.T) {
 	endSignal := capitan.NewSignal("test.span.end", "Span end")
 	correlationKey := capitan.NewStringKey("trace_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
-			{
-				Start:          startSignal,
-				End:            endSignal,
-				CorrelationKey: &correlationKey,
-				SpanName:       "test-span",
-			},
-		},
-	}
-
-	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	sh, err := New(cap, provider, metricnoop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	schema := Schema{
+		Traces: []TraceSchema{
+			{
+				Start:          "test.span.start",
+				End:            "test.span.end",
+				CorrelationKey: "trace_id",
+				SpanName:       "test-span",
+			},
+		},
+	}
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit events WITH the correlation key
 	cap.Emit(ctx, startSignal, correlationKey.Field("has-id"))
@@ -719,7 +718,6 @@ func TestInternalSignals_Defined(t *testing.T) {
 		name        string
 		description string
 	}{
-		{SignalTransformSkipped, "aperture:transform:skipped", "field transformation skipped due to unsupported type"},
 		{SignalTraceExpired, "aperture:trace:expired", "pending span expired without matching start/end"},
 		{SignalMetricValueMissing, "aperture:metric:value_missing", "metric value could not be extracted from event"},
 		{SignalTraceCorrelationMissing, "aperture:trace:correlation_missing", "trace event missing correlation ID field"},
@@ -740,8 +738,6 @@ func TestInternalFieldKeys_Defined(t *testing.T) {
 		key  capitan.StringKey
 		name string
 	}{
-		{internalFieldKey, "field_key"},
-		{internalFieldVariant, "field_variant"},
 		{internalSignal, "signal"},
 		{internalReason, "reason"},
 		{internalCorrelationID, "correlation_id"},

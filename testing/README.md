@@ -96,7 +96,8 @@ Captures OTEL log records for verification:
 
 ```go
 mockLog := testing.NewMockLoggerProvider()
-ap, err := aperture.New(cap, mockLog, meterProv, traceProv, config)
+ap, err := aperture.New(cap, mockLog, meterProv, traceProv)
+// ... apply schema if needed ...
 
 // ... emit events ...
 
@@ -128,19 +129,6 @@ cap.Hook(signal, capture.Handler())
 // ... emit events ...
 
 events := capture.Events()
-```
-
-### TestAperture
-Creates an Aperture instance with mock providers for unit testing:
-
-```go
-ap, mockLog, err := testing.TestAperture(cap, config)
-if err != nil {
-    t.Fatal(err)
-}
-defer ap.Close()
-
-// mockLog.Capture() provides access to captured logs
 ```
 
 ## Best Practices

@@ -12,39 +12,58 @@
 //	meterProvider := metric.NewMeterProvider(...)
 //	traceProvider := trace.NewTracerProvider(...)
 //
-//	sh, _ := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider, nil)
-//	defer sh.Close()
+//	ap, _ := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider)
+//	defer ap.Close()
+//
+//	// Load and apply configuration
+//	schema, _ := aperture.LoadSchemaFromYAML(configBytes)
+//	ap.Apply(schema)
 //
 // # Configuration
 //
-// Pass a [Config] to control signal transformation:
+// Aperture is configured via Schema (YAML or JSON). See [LoadSchemaFromYAML] and [LoadSchemaFromJSON].
 //
-//	config := &aperture.Config{
-//	    Metrics: []aperture.MetricConfig{
-//	        {Signal: orderCreated, Name: "orders_total", Type: aperture.MetricTypeCounter},
+//	schema, _ := aperture.LoadSchemaFromYAML([]byte(`
+//	metrics:
+//	  - signal: order.created
+//	    name: orders_total
+//	    type: counter
+//	traces:
+//	  - start: request.started
+//	    end: request.completed
+//	    correlation_key: request_id
+//	logs:
+//	  whitelist:
+//	    - order.created
+//	`))
+//	ap.Apply(schema)
+//
+// # Context Extraction
+//
+// To extract values from context.Context and add them to OTEL signals, register context keys:
+//
+//	type ctxKey string
+//	const userIDKey ctxKey = "user_id"
+//
+//	ap.RegisterContextKey("user_id", userIDKey)
+//
+// Then reference "user_id" in your schema's context section.
+//
+// # Hot Reload
+//
+// Use [Aperture.Apply] for dynamic configuration updates:
+//
+//	capacitor := flux.New[aperture.Schema](
+//	    file.New("config.yaml"),
+//	    func(_, schema aperture.Schema) error {
+//	        return ap.Apply(schema)
 //	    },
-//	    Traces: []aperture.TraceConfig{
-//	        {Start: reqStart, End: reqEnd, CorrelationKey: &reqID, SpanName: "http.request"},
-//	    },
-//	    Logs: &aperture.LogConfig{Whitelist: []capitan.Signal{orderCreated}},
-//	}
-//
-// # Custom Field Types
-//
-// Register transformers for user-defined types via [Config.Transformers]:
-//
-//	config := &aperture.Config{
-//	    Transformers: map[capitan.Variant]aperture.FieldTransformer{
-//	        orderVariant: aperture.MakeTransformer(func(key string, o Order) []log.KeyValue {
-//	            return []log.KeyValue{log.String(key+".id", o.ID)}
-//	        }),
-//	    },
-//	}
+//	)
+//	capacitor.Start(ctx)
 //
 // # Diagnostics
 //
 // Aperture emits diagnostic signals for operational visibility:
-//   - [SignalTransformSkipped]: Field type has no registered transformer
 //   - [SignalMetricValueMissing]: Metric event lacks required value field
 //   - [SignalTraceExpired]: Span start/end never matched within timeout
 //   - [SignalTraceCorrelationMissing]: Trace event lacks correlation ID field
@@ -53,7 +72,10 @@
 package aperture
 
 import (
+	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/zoobzio/capitan"
 	"go.opentelemetry.io/otel/log"
@@ -63,42 +85,44 @@ import (
 
 // Aperture bridges capitan events to OTEL providers.
 type Aperture struct {
+	capitan       *capitan.Capitan
 	logProvider   log.LoggerProvider
 	meterProvider metric.MeterProvider
 	traceProvider trace.TracerProvider
 
-	config           Config
+	config           config
+	contextKeys      map[string]any // name → context key for ctx.Value()
 	capitanObserver  *capitanObserver
 	internalObserver *internalObserver
+
+	mu sync.RWMutex
 }
 
-// New creates a Aperture instance that observes capitan events and forwards them to OTEL.
+// New creates an Aperture instance that observes capitan events and forwards them to OTEL.
 //
-// Aperture automatically transforms capitan events based on the provided configuration.
-// If no config is provided, all events are logged (backward compatible).
+// Aperture starts with no configuration (logs all events). Use [Aperture.Apply] to set configuration.
 //
 // Parameters:
 //   - c: Capitan instance to observe (required)
 //   - logProvider: OTEL LoggerProvider (required)
 //   - meterProvider: OTEL MeterProvider (required)
 //   - traceProvider: OTEL TracerProvider (required)
-//   - config: Optional configuration (pass nil for defaults)
 //
-// Example with configuration:
+// Example:
 //
-//	config := &aperture.Config{
-//	    Metrics: []aperture.MetricConfig{
-//	        {Signal: orderCreated, Name: "orders_created_total"},
-//	    },
-//	    Logs: &aperture.LogConfig{Whitelist: []capitan.Signal{orderCreated}},
+//	ap, err := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider)
+//	if err != nil {
+//	    log.Fatal(err)
 //	}
-//	sh := aperture.New(capitan.Default(), providers.Log, providers.Meter, providers.Trace, config)
+//	defer ap.Close()
+//
+//	schema, _ := aperture.LoadSchemaFromYAML(configBytes)
+//	ap.Apply(schema)
 func New(
 	c *capitan.Capitan,
 	logProvider log.LoggerProvider,
 	meterProvider metric.MeterProvider,
 	traceProvider trace.TracerProvider,
-	config *Config,
 ) (*Aperture, error) {
 	if c == nil {
 		return nil, fmt.Errorf("capitan instance is required")
@@ -113,17 +137,13 @@ func New(
 		return nil, fmt.Errorf("trace provider is required")
 	}
 
-	// Use empty config if nil
-	cfg := Config{}
-	if config != nil {
-		cfg = *config
-	}
-
 	s := &Aperture{
+		capitan:       c,
 		logProvider:   logProvider,
 		meterProvider: meterProvider,
 		traceProvider: traceProvider,
-		config:        cfg,
+		config:        config{},
+		contextKeys:   make(map[string]any),
 	}
 
 	// Create internal diagnostic observer
@@ -137,6 +157,29 @@ func New(
 	s.capitanObserver = observer
 
 	return s, nil
+}
+
+// RegisterContextKey registers a context key for extraction.
+//
+// Context keys must be registered before they can be used in schema configuration.
+// The name should match the name used in the schema's context section.
+//
+// Example:
+//
+//	type ctxKey string
+//	const userIDKey ctxKey = "user_id"
+//
+//	ap.RegisterContextKey("user_id", userIDKey)
+//
+// Then in schema:
+//
+//	context:
+//	  logs:
+//	    - user_id
+func (s *Aperture) RegisterContextKey(name string, key any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.contextKeys[name] = key
 }
 
 // Logger returns an OTEL logger for the given scope name.
@@ -160,11 +203,170 @@ func (s *Aperture) Tracer(name string) trace.Tracer {
 	return s.traceProvider.Tracer(name)
 }
 
+// Apply updates the aperture configuration atomically.
+//
+// This drains the current observer (waiting for queued events to complete),
+// then creates a new one with the updated config. No events are lost during
+// the transition.
+//
+// Example with flux for hot-reload:
+//
+//	capacitor := flux.New[aperture.Schema](
+//	    file.New("config.yaml"),
+//	    func(_, schema aperture.Schema) error {
+//	        return ap.Apply(schema)
+//	    },
+//	)
+//	capacitor.Start(ctx)
+func (s *Aperture) Apply(schema Schema) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Validate schema first
+	if err := schema.Validate(); err != nil {
+		return fmt.Errorf("invalid schema: %w", err)
+	}
+
+	// Build internal config from schema
+	cfg, err := s.buildConfig(schema)
+	if err != nil {
+		return fmt.Errorf("building config: %w", err)
+	}
+
+	// Drain and close old observer
+	if s.capitanObserver != nil {
+		// Drain waits for all queued events to be processed
+		if drainErr := s.capitanObserver.Drain(context.Background()); drainErr != nil {
+			return fmt.Errorf("draining observer: %w", drainErr)
+		}
+		s.capitanObserver.Close()
+	}
+
+	// Update config
+	s.config = *cfg
+
+	// Create new observer with updated config
+	observer, err := newCapitanObserver(s, s.capitan)
+	if err != nil {
+		return fmt.Errorf("creating observer: %w", err)
+	}
+	s.capitanObserver = observer
+
+	return nil
+}
+
+// buildConfig converts a Schema to internal config.
+func (s *Aperture) buildConfig(schema Schema) (*config, error) {
+	cfg := &config{
+		StdoutLogging: schema.Stdout,
+	}
+
+	// Convert metrics
+	for _, m := range schema.Metrics {
+		mc := metricConfig{
+			SignalName:   m.Signal,
+			Name:         m.Name,
+			Type:         parseMetricType(m.Type),
+			ValueKeyName: m.ValueKey,
+			Description:  m.Description,
+		}
+		cfg.Metrics = append(cfg.Metrics, mc)
+	}
+
+	// Convert traces
+	for _, t := range schema.Traces {
+		tc := traceConfig{
+			StartSignalName:    t.Start,
+			EndSignalName:      t.End,
+			CorrelationKeyName: t.CorrelationKey,
+			SpanName:           t.SpanName,
+			SpanTimeout:        parseTimeout(t.SpanTimeout),
+		}
+		cfg.Traces = append(cfg.Traces, tc)
+	}
+
+	// Convert logs
+	if schema.Logs != nil && len(schema.Logs.Whitelist) > 0 {
+		cfg.Logs = &logConfig{
+			WhitelistNames: schema.Logs.Whitelist,
+		}
+	}
+
+	// Convert context extraction
+	if schema.Context != nil {
+		ctxCfg := &contextExtractionConfig{}
+
+		// Build log context keys
+		for _, name := range schema.Context.Logs {
+			key, ok := s.contextKeys[name]
+			if !ok {
+				return nil, fmt.Errorf("context key %q not registered (referenced in context.logs)", name)
+			}
+			ctxCfg.Logs = append(ctxCfg.Logs, ContextKey{Key: key, Name: name})
+		}
+
+		// Build metric context keys
+		for _, name := range schema.Context.Metrics {
+			key, ok := s.contextKeys[name]
+			if !ok {
+				return nil, fmt.Errorf("context key %q not registered (referenced in context.metrics)", name)
+			}
+			ctxCfg.Metrics = append(ctxCfg.Metrics, ContextKey{Key: key, Name: name})
+		}
+
+		// Build trace context keys
+		for _, name := range schema.Context.Traces {
+			key, ok := s.contextKeys[name]
+			if !ok {
+				return nil, fmt.Errorf("context key %q not registered (referenced in context.traces)", name)
+			}
+			ctxCfg.Traces = append(ctxCfg.Traces, ContextKey{Key: key, Name: name})
+		}
+
+		if len(ctxCfg.Logs) > 0 || len(ctxCfg.Metrics) > 0 || len(ctxCfg.Traces) > 0 {
+			cfg.ContextExtraction = ctxCfg
+		}
+	}
+
+	return cfg, nil
+}
+
+// parseMetricType converts a string to MetricType.
+func parseMetricType(s string) MetricType {
+	switch s {
+	case "counter", "":
+		return MetricTypeCounter
+	case "gauge":
+		return MetricTypeGauge
+	case "histogram":
+		return MetricTypeHistogram
+	case "updowncounter":
+		return MetricTypeUpDownCounter
+	default:
+		return MetricTypeCounter
+	}
+}
+
+// parseTimeout parses a duration string, returning 5 minutes as default.
+func parseTimeout(s string) time.Duration {
+	if s == "" {
+		return 5 * time.Minute
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 5 * time.Minute
+	}
+	return d
+}
+
 // Close stops observing capitan events.
 //
 // Note: This does NOT shutdown the OTEL providers - that is the caller's responsibility.
 // If using the providers package, call providers.Shutdown(ctx) separately.
 func (s *Aperture) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.capitanObserver != nil {
 		s.capitanObserver.Close()
 	}

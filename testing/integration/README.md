@@ -49,17 +49,18 @@ func TestScenario_Example(t *testing.T) {
     signal := capitan.NewSignal("test.example", "Example signal")
     key := capitan.NewStringKey("key")
 
-    // 3. Create config
-    config := &aperture.Config{...}
-
-    // 4. Create aperture with test providers
+    // 3. Create aperture with test providers
     pvs, err := testing.TestProviders(ctx, "test", "v1", "localhost:4318")
     require.NoError(t, err)
     defer pvs.Shutdown(ctx)
 
-    ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+    ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
     require.NoError(t, err)
     defer ap.Close()
+
+    // 4. Apply schema configuration
+    schema := aperture.Schema{...}
+    ap.Apply(schema)
 
     // 5. Emit events
     cap.Emit(ctx, signal, key.Field("value"))
@@ -76,9 +77,14 @@ func TestScenario_WithMocks(t *testing.T) {
     cap := capitan.New()
     defer cap.Shutdown()
 
-    ap, mockLog, err := testing.TestAperture(cap, config)
+    // Create aperture with mock providers
+    mockLog := testing.NewMockLoggerProvider()
+    ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
     require.NoError(t, err)
     defer ap.Close()
+
+    // Apply schema if needed
+    ap.Apply(schema)
 
     // Emit events...
 

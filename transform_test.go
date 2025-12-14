@@ -119,17 +119,22 @@ func TestFieldsToAttributes(t *testing.T) {
 			wantLen: 4,
 		},
 		{
-			name: "custom field type (skipped)",
+			name: "custom field type (JSON serialized)",
 			fields: []capitan.Field{
 				capitan.NewKey[struct{}]("custom", "test.Custom").Field(struct{}{}),
 			},
-			wantLen: 0, // Custom types are skipped
+			wantLen: 1, // Custom types with Value() method are JSON serialized
+			validate: func(t *testing.T, result transformResult) {
+				if result.attrs[0].Value.AsString() != "{}" {
+					t.Errorf("expected '{}' JSON, got %v", result.attrs[0].Value.AsString())
+				}
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := fieldsToAttributes(tt.fields, nil)
+			result := fieldsToAttributes(tt.fields)
 
 			if len(result.attrs) != tt.wantLen {
 				t.Errorf("expected %d attributes, got %d", tt.wantLen, len(result.attrs))
@@ -161,7 +166,7 @@ func TestFieldsToAttributesAllTypes(t *testing.T) {
 		capitan.NewErrorKey("error").Field(errors.New("err")),
 	}
 
-	result := fieldsToAttributes(fields, nil)
+	result := fieldsToAttributes(fields)
 
 	// All 14 built-in types should be converted
 	if len(result.attrs) != 14 {
@@ -620,14 +625,14 @@ func TestExtractContextValuesForMetrics_AllTypes(t *testing.T) {
 		{Key: ctxKeyString("float64"), Name: "float64"},
 		{Key: ctxKeyString("bool"), Name: "bool"},
 		{Key: ctxKeyString("bytes"), Name: "bytes"},
-		{Key: ctxKeyString("unsupported"), Name: "unsupported"}, // Should be skipped
+		{Key: ctxKeyString("unsupported"), Name: "unsupported"}, // JSON serialized
 	}
 
 	attrs := extractContextValuesForMetrics(ctx, keys)
 
-	// 11 supported types, 1 unsupported (skipped)
-	if len(attrs) != 11 {
-		t.Errorf("expected 11 metric attributes, got %d", len(attrs))
+	// 11 supported types + 1 unsupported (JSON serialized)
+	if len(attrs) != 12 {
+		t.Errorf("expected 12 metric attributes, got %d", len(attrs))
 	}
 
 	// Verify each type was converted correctly
@@ -669,7 +674,8 @@ func TestExtractContextValuesForMetrics_AllTypes(t *testing.T) {
 	if _, ok := attrMap["bytes"]; !ok {
 		t.Error("missing bytes attribute")
 	}
-	if _, ok := attrMap["unsupported"]; ok {
-		t.Error("unsupported type should have been skipped")
+	// Unsupported types are now JSON serialized
+	if _, ok := attrMap["unsupported"]; !ok {
+		t.Error("missing unsupported attribute (should be JSON serialized)")
 	}
 }

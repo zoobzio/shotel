@@ -26,7 +26,7 @@ func LoadSchemaFromJSON(data []byte) (Schema, error) {
 }
 
 // Schema is the serializable configuration for aperture.
-// It can be loaded from YAML or JSON and converted to a Config via Registry.Build().
+// Load from YAML or JSON via [LoadSchemaFromYAML] or [LoadSchemaFromJSON], then apply via [Aperture.Apply].
 type Schema struct {
 	// Metrics specifies which signals should be converted to OTEL metrics.
 	Metrics []MetricSchema `json:"metrics,omitempty" yaml:"metrics,omitempty"`

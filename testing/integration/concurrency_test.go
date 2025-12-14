@@ -22,12 +22,12 @@ func TestConcurrency_MultipleGoroutinesEmitting(t *testing.T) {
 	sig := capitan.NewSignal("concurrent.emit", "Concurrent emission test")
 	counterKey := capitan.NewIntKey("counter")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal: sig,
+				Signal: "concurrent.emit",
 				Name:   "concurrent_emits_total",
-				Type:   aperture.MetricTypeCounter,
+				Type:   "counter",
 			},
 		},
 	}
@@ -37,11 +37,16 @@ func TestConcurrency_MultipleGoroutinesEmitting(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Launch multiple goroutines emitting concurrently
 	const goroutines = 10
@@ -73,12 +78,12 @@ func TestConcurrency_TraceCorrelationUnderLoad(t *testing.T) {
 	reqCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestID := capitan.NewStringKey("request_id")
 
-	config := &aperture.Config{
-		Traces: []aperture.TraceConfig{
+	schema := aperture.Schema{
+		Traces: []aperture.TraceSchema{
 			{
-				Start:          reqStarted,
-				End:            reqCompleted,
-				CorrelationKey: &requestID,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "http_request",
 			},
 		},
@@ -89,11 +94,16 @@ func TestConcurrency_TraceCorrelationUnderLoad(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Launch multiple goroutines creating overlapping traces
 	const requests = 50
@@ -135,7 +145,7 @@ func TestConcurrency_CreateAndClose(t *testing.T) {
 			sig := capitan.NewSignal("lifecycle.test", "Lifecycle test signal")
 
 			mockLog := apertesting.NewMockLoggerProvider()
-			ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
+			ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 			if err != nil {
 				t.Errorf("failed to create aperture: %v", err)
 				return
@@ -166,16 +176,16 @@ func TestConcurrency_MixedOperations(t *testing.T) {
 	requestID := capitan.NewStringKey("request_id")
 	valueKey := capitan.NewFloat64Key("value")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
-			{Signal: sig1, Name: "mixed_counter", Type: aperture.MetricTypeCounter},
-			{Signal: sig2, Name: "mixed_gauge", Type: aperture.MetricTypeGauge, ValueKey: valueKey},
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
+			{Signal: "mixed.signal1", Name: "mixed_counter", Type: "counter"},
+			{Signal: "mixed.signal2", Name: "mixed_gauge", Type: "gauge", ValueKey: "value"},
 		},
-		Traces: []aperture.TraceConfig{
-			{Start: reqStarted, End: reqEnded, CorrelationKey: &requestID, SpanName: "mixed"},
+		Traces: []aperture.TraceSchema{
+			{Start: "mixed.started", End: "mixed.ended", CorrelationKey: "request_id", SpanName: "mixed"},
 		},
-		Logs: &aperture.LogConfig{
-			Whitelist: []capitan.Signal{sig1, sig2},
+		Logs: &aperture.LogSchema{
+			Whitelist: []string{"mixed.signal1", "mixed.signal2"},
 		},
 	}
 
@@ -184,11 +194,16 @@ func TestConcurrency_MixedOperations(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Mix of different operations concurrently
 	var wg sync.WaitGroup
@@ -235,7 +250,7 @@ func TestConcurrency_HighVolumeLogging(t *testing.T) {
 	sig := capitan.NewSignal("highvolume.log", "High volume logging test")
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}

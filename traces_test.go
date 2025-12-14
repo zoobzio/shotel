@@ -19,27 +19,32 @@ func TestTraceSpanCleanup(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	requestStarted := capitan.NewSignal("request.started", "Request Started")
-	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
-	requestIDKey := capitan.NewStringKey("request_id")
+	_ = capitan.NewSignal("request.started", "Request Started")
+	_ = capitan.NewSignal("request.completed", "Request Completed")
+	_ = capitan.NewStringKey("request_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
+	schema := Schema{
+		Traces: []TraceSchema{
 			{
-				Start:          requestStarted,
-				End:            requestCompleted,
-				CorrelationKey: &requestIDKey,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "http_request",
-				SpanTimeout:    5 * time.Second,
+				SpanTimeout:    "5s",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	th := sh.capitanObserver.tracesHandler
 	if th == nil {
@@ -118,23 +123,28 @@ func TestTraceSpanCompletesBeforeTimeout(t *testing.T) {
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
+	schema := Schema{
+		Traces: []TraceSchema{
 			{
-				Start:          requestStarted,
-				End:            requestCompleted,
-				CorrelationKey: &requestIDKey,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "http_request",
-				SpanTimeout:    5 * time.Second,
+				SpanTimeout:    "5s",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Add listeners for both events
 	var wg sync.WaitGroup
@@ -173,26 +183,31 @@ func TestTraceDefaultTimeout(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	requestStarted := capitan.NewSignal("request.started", "Request Started")
-	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
-	requestIDKey := capitan.NewStringKey("request_id")
+	_ = capitan.NewSignal("request.started", "Request Started")
+	_ = capitan.NewSignal("request.completed", "Request Completed")
+	_ = capitan.NewStringKey("request_id")
 
 	// No timeout specified - should default to 5 minutes
-	config := &Config{
-		Traces: []TraceConfig{
+	schema := Schema{
+		Traces: []TraceSchema{
 			{
-				Start:          requestStarted,
-				End:            requestCompleted,
-				CorrelationKey: &requestIDKey,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	th := sh.capitanObserver.tracesHandler
 	if th.maxTimeout != 5*time.Minute {
@@ -210,23 +225,28 @@ func TestTraceCloseEndsAllSpans(t *testing.T) {
 	}
 
 	requestStarted := capitan.NewSignal("request.started", "Request Started")
-	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
+	_ = capitan.NewSignal("request.completed", "Request Completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
+	schema := Schema{
+		Traces: []TraceSchema{
 			{
-				Start:          requestStarted,
-				End:            requestCompleted,
-				CorrelationKey: &requestIDKey,
-				SpanTimeout:    10 * time.Second,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
+				SpanTimeout:    "10s",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
+	}
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
 	}
 
 	// Add listener AFTER aperture to ensure aperture processes first
@@ -284,30 +304,35 @@ func TestTraceCompositeKeyPreventsCollisions(t *testing.T) {
 	httpRequestCompleted := capitan.NewSignal("http.request.completed", "Http Request Completed")
 	correlationIDKey := capitan.NewStringKey("correlation_id")
 
-	config := &Config{
-		Traces: []TraceConfig{
+	schema := Schema{
+		Traces: []TraceSchema{
 			{
-				Start:          dbQueryStarted,
-				End:            dbQueryCompleted,
-				CorrelationKey: &correlationIDKey,
+				Start:          "db.query.started",
+				End:            "db.query.completed",
+				CorrelationKey: "correlation_id",
 				SpanName:       "database_query",
-				SpanTimeout:    5 * time.Second,
+				SpanTimeout:    "5s",
 			},
 			{
-				Start:          httpRequestStarted,
-				End:            httpRequestCompleted,
-				CorrelationKey: &correlationIDKey,
+				Start:          "http.request.started",
+				End:            "http.request.completed",
+				CorrelationKey: "correlation_id",
 				SpanName:       "http_request",
-				SpanTimeout:    5 * time.Second,
+				SpanTimeout:    "5s",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(4)

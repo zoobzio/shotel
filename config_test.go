@@ -7,10 +7,9 @@ import (
 
 	apertesting "github.com/zoobzio/aperture/testing"
 	"github.com/zoobzio/capitan"
-	"go.opentelemetry.io/otel/log"
 )
 
-func TestConfigMetrics(t *testing.T) {
+func TestSchemaMetrics(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -20,32 +19,39 @@ func TestConfigMetrics(t *testing.T) {
 	}
 
 	// Define signals
-	orderCreated := capitan.NewSignal("order.created", "Order created")
-	orderFailed := capitan.NewSignal("order.failed", "Order failed")
+	_ = capitan.NewSignal("order.created", "Order created")
+	_ = capitan.NewSignal("order.failed", "Order failed")
 
-	// Configure metrics
-	config := &Config{
-		Metrics: []MetricConfig{
+	// Configure metrics via schema
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:      orderCreated,
+				Signal:      "order.created",
 				Name:        "orders_created_total",
 				Description: "Total number of orders created",
 			},
 			{
-				Signal:      orderFailed,
+				Signal:      "order.failed",
 				Name:        "orders_failed_total",
 				Description: "Total number of failed orders",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
 
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
 	// Emit events
+	orderCreated := capitan.NewSignal("order.created", "Order created")
+	orderFailed := capitan.NewSignal("order.failed", "Order failed")
 	orderIDKey := capitan.NewStringKey("order_id")
 	cap.Emit(ctx, orderCreated, orderIDKey.Field("ORDER-123"))
 	cap.Emit(ctx, orderCreated, orderIDKey.Field("ORDER-124"))
@@ -57,7 +63,7 @@ func TestConfigMetrics(t *testing.T) {
 	// Metrics should be incremented (validation would require OTLP capture)
 }
 
-func TestConfigLogWhitelist(t *testing.T) {
+func TestSchemaLogWhitelist(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -72,17 +78,22 @@ func TestConfigLogWhitelist(t *testing.T) {
 	orderCanceled := capitan.NewSignal("order.canceled", "Order canceled")
 
 	// Configure log whitelist - only log created and failed
-	config := &Config{
-		Logs: &LogConfig{
-			Whitelist: []capitan.Signal{orderCreated, orderFailed},
+	schema := Schema{
+		Logs: &LogSchema{
+			Whitelist: []string{"order.created", "order.failed"},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit events
 	orderIDKey := capitan.NewStringKey("order_id")
@@ -96,7 +107,7 @@ func TestConfigLogWhitelist(t *testing.T) {
 	// Log filtering is applied (validation would require OTLP capture)
 }
 
-func TestConfigTraces(t *testing.T) {
+func TestSchemaTraces(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -110,23 +121,28 @@ func TestConfigTraces(t *testing.T) {
 	requestCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestIDKey := capitan.NewStringKey("request_id")
 
-	// Configure traces
-	config := &Config{
-		Traces: []TraceConfig{
+	// Configure traces via schema
+	schema := Schema{
+		Traces: []TraceSchema{
 			{
-				Start:          requestStarted,
-				End:            requestCompleted,
-				CorrelationKey: &requestIDKey,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "http_request",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit correlated events
 	cap.Emit(ctx, requestStarted, requestIDKey.Field("REQ-001"))
@@ -139,7 +155,7 @@ func TestConfigTraces(t *testing.T) {
 	// Span should be created and completed (validation would require OTLP capture)
 }
 
-func TestConfigCombined(t *testing.T) {
+func TestSchemaCombined(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -154,29 +170,34 @@ func TestConfigCombined(t *testing.T) {
 	orderIDKey := capitan.NewStringKey("order_id")
 
 	// Configure all three: metrics, logs, traces
-	config := &Config{
-		Metrics: []MetricConfig{
-			{Signal: orderCreated, Name: "orders_created_total"},
-			{Signal: orderCompleted, Name: "orders_completed_total"},
+	schema := Schema{
+		Metrics: []MetricSchema{
+			{Signal: "order.created", Name: "orders_created_total"},
+			{Signal: "order.completed", Name: "orders_completed_total"},
 		},
-		Logs: &LogConfig{
-			Whitelist: []capitan.Signal{orderCreated, orderCompleted},
+		Logs: &LogSchema{
+			Whitelist: []string{"order.created", "order.completed"},
 		},
-		Traces: []TraceConfig{
+		Traces: []TraceSchema{
 			{
-				Start:          orderCreated,
-				End:            orderCompleted,
-				CorrelationKey: &orderIDKey,
+				Start:          "order.created",
+				End:            "order.completed",
+				CorrelationKey: "order_id",
 				SpanName:       "order_processing",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit events that should trigger all three signal types
 	cap.Emit(ctx, orderCreated, orderIDKey.Field("ORD-001"))
@@ -189,7 +210,7 @@ func TestConfigCombined(t *testing.T) {
 	// All signals should be handled: metric incremented, logs emitted, span created
 }
 
-func TestEmptyConfig(t *testing.T) {
+func TestEmptySchema(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -198,14 +219,19 @@ func TestEmptyConfig(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	// Empty config - should behave like nil (all events logged)
-	config := &Config{}
+	// Empty schema - should behave like default (all events logged)
+	schema := Schema{}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit event
 	testSig := capitan.NewSignal("test.event", "Test event")
@@ -216,105 +242,47 @@ func TestEmptyConfig(t *testing.T) {
 	// Should log all events (default behavior)
 }
 
-func TestMakeTransformer_Success(t *testing.T) {
-	// Custom type for testing
-	type OrderInfo struct {
-		ID    string
-		Total float64
+func TestParseMetricType(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected MetricType
+	}{
+		{"counter", MetricTypeCounter},
+		{"", MetricTypeCounter},
+		{"gauge", MetricTypeGauge},
+		{"histogram", MetricTypeHistogram},
+		{"updowncounter", MetricTypeUpDownCounter},
+		{"unknown", MetricTypeCounter}, // defaults to counter
 	}
 
-	// Create transformer
-	transformer := MakeTransformer(func(key string, order OrderInfo) []log.KeyValue {
-		return []log.KeyValue{
-			log.String(key+".id", order.ID),
-			log.Float64(key+".total", order.Total),
-		}
-	})
-
-	// Create a field with the custom type
-	orderKey := capitan.NewKey[OrderInfo]("order", "test.OrderInfo")
-	field := orderKey.Field(OrderInfo{ID: "ORD-123", Total: 99.99})
-
-	// Transform the field
-	result := transformer(field)
-
-	if len(result) != 2 {
-		t.Fatalf("expected 2 attributes, got %d", len(result))
-	}
-
-	// Verify ID attribute
-	if result[0].Key != "order.id" {
-		t.Errorf("expected key 'order.id', got %q", result[0].Key)
-	}
-	if result[0].Value.AsString() != "ORD-123" {
-		t.Errorf("expected value 'ORD-123', got %q", result[0].Value.AsString())
-	}
-
-	// Verify Total attribute
-	if result[1].Key != "order.total" {
-		t.Errorf("expected key 'order.total', got %q", result[1].Key)
-	}
-	if result[1].Value.AsFloat64() != 99.99 {
-		t.Errorf("expected value 99.99, got %v", result[1].Value.AsFloat64())
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseMetricType(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseMetricType(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
 
-func TestMakeTransformer_WrongType(t *testing.T) {
-	// Transformer expects OrderInfo
-	type OrderInfo struct {
-		ID string
+func TestParseTimeout(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected time.Duration
+	}{
+		{"", 5 * time.Minute},
+		{"invalid", 5 * time.Minute},
+		{"30s", 30 * time.Second},
+		{"10m", 10 * time.Minute},
+		{"1h", 1 * time.Hour},
 	}
 
-	transformer := MakeTransformer(func(key string, order OrderInfo) []log.KeyValue {
-		return []log.KeyValue{
-			log.String(key+".id", order.ID),
-		}
-	})
-
-	// Pass a field with a different type (string)
-	stringKey := capitan.NewStringKey("wrong_type")
-	field := stringKey.Field("not an order")
-
-	// Transform should return nil for wrong type
-	result := transformer(field)
-
-	if result != nil {
-		t.Errorf("expected nil for wrong type, got %v", result)
-	}
-}
-
-func TestMakeTransformer_EmptyResult(t *testing.T) {
-	// Transformer that returns empty slice
-	type EmptyType struct{}
-
-	transformer := MakeTransformer(func(key string, _ EmptyType) []log.KeyValue {
-		return []log.KeyValue{}
-	})
-
-	emptyKey := capitan.NewKey[EmptyType]("empty", "test.EmptyType")
-	field := emptyKey.Field(EmptyType{})
-
-	result := transformer(field)
-
-	if len(result) != 0 {
-		t.Errorf("expected empty result, got %d attributes", len(result))
-	}
-}
-
-func TestMakeTransformer_NilResult(t *testing.T) {
-	// Transformer that returns nil
-	type NilType struct{}
-
-	transformer := MakeTransformer(func(key string, _ NilType) []log.KeyValue {
-		return nil
-	})
-
-	nilKey := capitan.NewKey[NilType]("nil", "test.NilType")
-	field := nilKey.Field(NilType{})
-
-	result := transformer(field)
-
-	if result != nil {
-		t.Errorf("expected nil result, got %v", result)
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseTimeout(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseTimeout(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
 	}
 }

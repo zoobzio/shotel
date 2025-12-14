@@ -13,11 +13,10 @@ type capitanObserver struct {
 	logger         log.Logger
 	metricsHandler *metricsHandler
 	tracesHandler  *tracesHandler
-	logWhitelist   map[capitan.Signal]struct{}
+	logWhitelist   map[string]struct{} // signal name → allowed
 	logContextKeys []ContextKey
 	stdoutLogger   *stdoutLogger
 	internal       *internalObserver
-	transformers   map[capitan.Variant]FieldTransformer
 }
 
 // newCapitanObserver creates and attaches an observer to the capitan instance.
@@ -30,12 +29,12 @@ func newCapitanObserver(s *Aperture, c *capitan.Capitan) (*capitanObserver, erro
 		return nil, err
 	}
 
-	// Build log whitelist if configured
-	var logWhitelist map[capitan.Signal]struct{}
-	if s.config.Logs != nil && len(s.config.Logs.Whitelist) > 0 {
-		logWhitelist = make(map[capitan.Signal]struct{})
-		for _, sig := range s.config.Logs.Whitelist {
-			logWhitelist[sig] = struct{}{}
+	// Build log whitelist if configured (now uses signal names)
+	var logWhitelist map[string]struct{}
+	if s.config.Logs != nil && len(s.config.Logs.WhitelistNames) > 0 {
+		logWhitelist = make(map[string]struct{})
+		for _, name := range s.config.Logs.WhitelistNames {
+			logWhitelist[name] = struct{}{}
 		}
 	}
 
@@ -62,7 +61,6 @@ func newCapitanObserver(s *Aperture, c *capitan.Capitan) (*capitanObserver, erro
 		logContextKeys: logContextKeys,
 		stdoutLogger:   stdoutLogger,
 		internal:       s.internalObserver,
-		transformers:   s.config.Transformers,
 	}
 
 	// Observe all signals
@@ -88,10 +86,10 @@ func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
 		co.tracesHandler.handleEvent(ctx, e)
 	}
 
-	// Handle logs with whitelist filtering
+	// Handle logs with whitelist filtering (now matches by signal name)
 	if co.logWhitelist != nil {
-		// Whitelist configured - only log if signal is in whitelist
-		if _, ok := co.logWhitelist[e.Signal()]; !ok {
+		// Whitelist configured - only log if signal name is in whitelist
+		if _, ok := co.logWhitelist[e.Signal().Name()]; !ok {
 			return
 		}
 	}
@@ -112,18 +110,9 @@ func (co *capitanObserver) handleEvent(ctx context.Context, e *capitan.Event) {
 	// Add signal as attribute
 	record.AddAttributes(log.String("capitan.signal", e.Signal().Name()))
 
-	// Transform and add all fields
-	result := fieldsToAttributes(e.Fields(), co.transformers)
+	// Transform and add all fields (no transformers - use JSON fallback)
+	result := fieldsToAttributes(e.Fields())
 	record.AddAttributes(result.attrs...)
-
-	// Emit diagnostics for skipped fields
-	for _, skipped := range result.skipped {
-		co.internal.emit(ctx, SignalTransformSkipped,
-			internalFieldKey.Field(skipped.key),
-			internalFieldVariant.Field(skipped.variant),
-			internalSignal.Field(e.Signal().Name()),
-		)
-	}
 
 	// Extract and add context values if configured
 	if len(co.logContextKeys) > 0 {
@@ -149,6 +138,14 @@ func severityToOTEL(s capitan.Severity) log.Severity {
 	default:
 		return log.SeverityInfo // Default to Info for unrecognized severities
 	}
+}
+
+// Drain blocks until all queued events have been processed.
+func (co *capitanObserver) Drain(ctx context.Context) error {
+	if co.observer != nil {
+		return co.observer.Drain(ctx)
+	}
+	return nil
 }
 
 // Close stops observing capitan events.

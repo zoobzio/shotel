@@ -17,19 +17,8 @@ import (
 //
 //	aperture.signal = "aperture:*"
 var (
-	// SignalTransformSkipped is emitted when a custom field type has no registered
-	// transformer. The field is omitted from OTEL output.
-	//
-	// Attributes:
-	//   - field_key: Name of the skipped field
-	//   - field_variant: The capitan variant that was not recognized
-	//   - signal: The originating capitan signal name
-	//
-	// Resolution: Register a transformer via [Config.Transformers] using [MakeTransformer].
-	SignalTransformSkipped = capitan.NewSignal("aperture:transform:skipped", "field transformation skipped due to unsupported type")
-
 	// SignalTraceExpired is emitted when a span's start or end event was received
-	// but the matching counterpart never arrived within [TraceConfig.SpanTimeout].
+	// but the matching counterpart never arrived within the configured span timeout.
 	//
 	// Attributes:
 	//   - correlation_id: The correlation ID that was never matched
@@ -37,12 +26,12 @@ var (
 	//   - reason: Either "end event not received" or "start event not received"
 	//
 	// Resolution: Check that both start and end signals are being emitted with
-	// matching correlation IDs, or increase SpanTimeout for long-running operations.
+	// matching correlation IDs, or increase span_timeout for long-running operations.
 	SignalTraceExpired = capitan.NewSignal("aperture:trace:expired", "pending span expired without matching start/end")
 
 	// SignalMetricValueMissing is emitted when a metric that requires a value
 	// (gauge, histogram, updowncounter) receives an event without the configured
-	// [MetricConfig.ValueKey] field.
+	// value_key field.
 	//
 	// Attributes:
 	//   - signal: The originating capitan signal name
@@ -53,7 +42,7 @@ var (
 	SignalMetricValueMissing = capitan.NewSignal("aperture:metric:value_missing", "metric value could not be extracted from event")
 
 	// SignalTraceCorrelationMissing is emitted when a trace start or end event
-	// lacks the [TraceConfig.CorrelationKey] field required to match spans.
+	// lacks the correlation_key field required to match spans.
 	//
 	// Attributes:
 	//   - signal: The originating capitan signal name
@@ -66,8 +55,6 @@ var (
 
 // Internal field keys for diagnostic events.
 var (
-	internalFieldKey       = capitan.NewStringKey("field_key")
-	internalFieldVariant   = capitan.NewStringKey("field_variant")
 	internalSignal         = capitan.NewStringKey("signal")
 	internalReason         = capitan.NewStringKey("reason")
 	internalCorrelationID  = capitan.NewStringKey("correlation_id")

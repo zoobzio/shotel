@@ -34,15 +34,20 @@ func TestStdoutLogging(t *testing.T) {
 		t.Fatalf("Failed to create providers: %v", err)
 	}
 
-	config := &Config{
-		StdoutLogging: true,
+	schema := Schema{
+		Stdout: true,
 	}
 
-	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("Failed to create aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit event
 	c.Emit(ctx, testSignal, testKey.Field("test_value"))
@@ -90,15 +95,20 @@ func TestStdoutLoggingDisabled(t *testing.T) {
 		t.Fatalf("Failed to create providers: %v", err)
 	}
 
-	config := &Config{
-		StdoutLogging: false,
+	schema := Schema{
+		Stdout: false,
 	}
 
-	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("Failed to create aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit event
 	c.Emit(ctx, testSignal)
@@ -183,15 +193,20 @@ func TestStdoutLoggerSeverityMapping(t *testing.T) {
 				t.Fatalf("Failed to create providers: %v", err)
 			}
 
-			config := &Config{
-				StdoutLogging: true,
+			schema := Schema{
+				Stdout: true,
 			}
 
-			sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
+			sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace)
 			if err != nil {
 				t.Fatalf("Failed to create aperture: %v", err)
 			}
 			defer sh.Close()
+
+			err = sh.Apply(schema)
+			if err != nil {
+				t.Fatalf("Apply failed: %v", err)
+			}
 
 			// Emit event - capitan will use the default severity
 			// Severity mapping is tested directly in capitan_test.go:TestSeverityToOTEL
@@ -238,20 +253,26 @@ func TestStdoutLoggingWithContextExtraction(t *testing.T) {
 		t.Fatalf("Failed to create providers: %v", err)
 	}
 
-	config := &Config{
-		StdoutLogging: true,
-		ContextExtraction: &ContextExtractionConfig{
-			Logs: []ContextKey{
-				{Key: requestIDKey, Name: "request_id"},
-			},
-		},
-	}
-
-	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(c, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("Failed to create aperture: %v", err)
 	}
 	defer sh.Close()
+
+	// Register context key
+	sh.RegisterContextKey("request_id", requestIDKey)
+
+	schema := Schema{
+		Stdout: true,
+		Context: &ContextSchema{
+			Logs: []string{"request_id"},
+		},
+	}
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit event
 	c.Emit(ctx, testSignal)

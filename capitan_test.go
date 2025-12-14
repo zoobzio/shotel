@@ -63,17 +63,22 @@ func TestCapitanObserver_LogWhitelist(t *testing.T) {
 	allowedSignal := capitan.NewSignal("allowed", "Allowed signal")
 	blockedSignal := capitan.NewSignal("blocked", "Blocked signal")
 
-	config := &Config{
-		Logs: &LogConfig{
-			Whitelist: []capitan.Signal{allowedSignal},
+	schema := Schema{
+		Logs: &LogSchema{
+			Whitelist: []string{"allowed"},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit both signals - only allowedSignal should be logged
 	cap.Emit(ctx, allowedSignal)
@@ -93,7 +98,7 @@ func TestCapitanObserver_NoWhitelist(t *testing.T) {
 	}
 
 	// No whitelist - all events should be logged
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
@@ -118,17 +123,22 @@ func TestCapitanObserver_EmptyWhitelist(t *testing.T) {
 	}
 
 	// Empty whitelist - should behave like no whitelist (log all)
-	config := &Config{
-		Logs: &LogConfig{
-			Whitelist: []capitan.Signal{},
+	schema := Schema{
+		Logs: &LogSchema{
+			Whitelist: []string{},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	sig := capitan.NewSignal("test.event", "Test event")
 	cap.Emit(ctx, sig)
@@ -145,7 +155,7 @@ func TestCapitanObserver_Shutdown(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
@@ -168,29 +178,34 @@ func TestCapitanObserver_MetricsAndTracesIntegration(t *testing.T) {
 	requestCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestID := capitan.NewStringKey("request_id")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal: orderCreated,
+				Signal: "order.created",
 				Name:   "orders_total",
-				Type:   MetricTypeCounter,
+				Type:   "counter",
 			},
 		},
-		Traces: []TraceConfig{
+		Traces: []TraceSchema{
 			{
-				Start:          requestStarted,
-				End:            requestCompleted,
-				CorrelationKey: &requestID,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "request",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit events - should trigger metrics, traces, and logs
 	cap.Emit(ctx, orderCreated)
@@ -209,7 +224,7 @@ func TestCapitanObserver_SeverityPropagation(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}

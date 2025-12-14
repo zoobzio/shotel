@@ -69,7 +69,7 @@ func (p *Providers) Shutdown(ctx context.Context) error {
 //	}
 //	defer pvs.Shutdown(ctx)
 //
-//	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+//	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 //	if err != nil {
 //	    t.Fatal(err)
 //	}

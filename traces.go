@@ -30,7 +30,7 @@ type pendingEnd struct {
 // tracesHandler manages trace correlation from signal pairs.
 type tracesHandler struct {
 	tracer trace.Tracer
-	config []TraceConfig
+	config []traceConfig
 
 	// Track pending starts and ends by correlation ID
 	pendingStarts map[string]*pendingSpan
@@ -171,40 +171,40 @@ func (th *tracesHandler) handleEvent(ctx context.Context, e *capitan.Event) {
 		return
 	}
 
-	signal := e.Signal()
+	signalName := e.Signal().Name()
 
-	// Check each trace configuration
+	// Check each trace configuration (match by signal name)
 	for _, tc := range th.config {
-		if signal == tc.Start {
+		if signalName == tc.StartSignalName {
 			th.handleStart(ctx, e, tc)
-		} else if signal == tc.End {
+		} else if signalName == tc.EndSignalName {
 			th.handleEnd(ctx, e, tc)
 		}
 	}
 }
 
 // handleStart stores the start event data or creates span if end already received.
-func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc TraceConfig) {
+func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc traceConfig) {
 	// Determine span name for diagnostics
 	spanName := tc.SpanName
 	if spanName == "" {
-		spanName = tc.Start.Name()
+		spanName = tc.StartSignalName
 	}
 
-	// Extract correlation ID from event
-	correlationID := th.extractCorrelationID(e, tc.CorrelationKey)
+	// Extract correlation ID from event (by key name)
+	correlationID := extractStringFieldByName(e, tc.CorrelationKeyName)
 	if correlationID == "" {
 		// Emit diagnostic for missing correlation ID
 		th.internal.emit(ctx, SignalTraceCorrelationMissing,
 			internalSignal.Field(e.Signal().Name()),
 			internalSpanName.Field(spanName),
-			internalCorrelationKey.Field(tc.CorrelationKey.Name()),
+			internalCorrelationKey.Field(tc.CorrelationKeyName),
 		)
 		return
 	}
 
 	// Create composite key to prevent collisions between different trace configs
-	compositeKey := th.makeCompositeKey(correlationID, tc.Start, tc.End)
+	compositeKey := th.makeCompositeKey(correlationID, tc.StartSignalName, tc.EndSignalName)
 
 	th.mu.Lock()
 	defer th.mu.Unlock()
@@ -241,27 +241,27 @@ func (th *tracesHandler) handleStart(ctx context.Context, e *capitan.Event, tc T
 }
 
 // handleEnd stores the end event data or creates span if start already received.
-func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc TraceConfig) {
+func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc traceConfig) {
 	// Determine span name for diagnostics
 	spanName := tc.SpanName
 	if spanName == "" {
-		spanName = tc.Start.Name()
+		spanName = tc.StartSignalName
 	}
 
-	// Extract correlation ID from event
-	correlationID := th.extractCorrelationID(e, tc.CorrelationKey)
+	// Extract correlation ID from event (by key name)
+	correlationID := extractStringFieldByName(e, tc.CorrelationKeyName)
 	if correlationID == "" {
 		// Emit diagnostic for missing correlation ID
 		th.internal.emit(ctx, SignalTraceCorrelationMissing,
 			internalSignal.Field(e.Signal().Name()),
 			internalSpanName.Field(spanName),
-			internalCorrelationKey.Field(tc.CorrelationKey.Name()),
+			internalCorrelationKey.Field(tc.CorrelationKeyName),
 		)
 		return
 	}
 
 	// Create composite key to prevent collisions between different trace configs
-	compositeKey := th.makeCompositeKey(correlationID, tc.Start, tc.End)
+	compositeKey := th.makeCompositeKey(correlationID, tc.StartSignalName, tc.EndSignalName)
 
 	th.mu.Lock()
 	defer th.mu.Unlock()
@@ -299,22 +299,19 @@ func (th *tracesHandler) handleEnd(ctx context.Context, e *capitan.Event, tc Tra
 
 // makeCompositeKey creates a unique key combining correlation ID and signal names.
 // This prevents collisions when multiple trace configs share the same correlation ID.
-func (*tracesHandler) makeCompositeKey(correlationID string, start, end capitan.Signal) string {
-	return correlationID + ":" + start.Name() + ":" + end.Name()
+func (*tracesHandler) makeCompositeKey(correlationID, startSignalName, endSignalName string) string {
+	return correlationID + ":" + startSignalName + ":" + endSignalName
 }
 
-// extractCorrelationID gets the correlation ID from the event fields.
-func (*tracesHandler) extractCorrelationID(e *capitan.Event, key *capitan.StringKey) string {
-	if key == nil {
+// extractStringFieldByName gets a string field value from the event fields by key name.
+func extractStringFieldByName(e *capitan.Event, keyName string) string {
+	if keyName == "" {
 		return ""
 	}
 
-	// Compare keys by their Name() since Key interface doesn't define equality
-	keyName := key.Name()
 	for _, f := range e.Fields() {
-		fKey := f.Key()
-		// Match by name and variant
-		if fKey.Name() == keyName && fKey.Variant() == key.Variant() && f.Variant() == capitan.VariantString {
+		// Match by key name and string variant
+		if f.Key().Name() == keyName && f.Variant() == capitan.VariantString {
 			if gf, ok := f.(capitan.GenericField[string]); ok {
 				return gf.Get()
 			}

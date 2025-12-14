@@ -21,22 +21,27 @@ func TestMetricTypeCounter(t *testing.T) {
 
 	orderCreated := capitan.NewSignal("order.created", "Order Created")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal: orderCreated,
+				Signal: "order.created",
 				Name:   "orders_created_total",
-				Type:   MetricTypeCounter,
+				Type:   "counter",
 				// No ValueKey needed for counter
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit events - counter should increment
 	cap.Emit(ctx, orderCreated)
@@ -59,22 +64,27 @@ func TestMetricTypeGaugeInt64(t *testing.T) {
 	cpuUsage := capitan.NewSignal("system.cpu.usage", "System Cpu Usage")
 	usageKey := capitan.NewInt64Key("percent")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   cpuUsage,
+				Signal:   "system.cpu.usage",
 				Name:     "cpu_usage_percent",
-				Type:     MetricTypeGauge,
-				ValueKey: usageKey,
+				Type:     "gauge",
+				ValueKey: "percent",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit gauge values
 	cap.Emit(ctx, cpuUsage, usageKey.Field(45))
@@ -97,22 +107,27 @@ func TestMetricTypeGaugeFloat64(t *testing.T) {
 	temperature := capitan.NewSignal("system.temperature", "System Temperature")
 	tempKey := capitan.NewFloat64Key("celsius")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   temperature,
+				Signal:   "system.temperature",
 				Name:     "temperature_celsius",
-				Type:     MetricTypeGauge,
-				ValueKey: tempKey,
+				Type:     "gauge",
+				ValueKey: "celsius",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit float gauge values
 	cap.Emit(ctx, temperature, tempKey.Field(22.5))
@@ -133,23 +148,28 @@ func TestMetricTypeHistogramDuration(t *testing.T) {
 	requestCompleted := capitan.NewSignal("request.completed", "Request Completed")
 	durationKey := capitan.NewDurationKey("duration")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:      requestCompleted,
+				Signal:      "request.completed",
 				Name:        "request_duration_ms",
-				Type:        MetricTypeHistogram,
-				ValueKey:    durationKey,
+				Type:        "histogram",
+				ValueKey:    "duration",
 				Description: "Request duration in milliseconds",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit duration measurements
 	cap.Emit(ctx, requestCompleted, durationKey.Field(150*time.Millisecond))
@@ -172,22 +192,27 @@ func TestMetricTypeHistogramInt64(t *testing.T) {
 	messageReceived := capitan.NewSignal("message.received", "Message Received")
 	sizeKey := capitan.NewInt64Key("size_bytes")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   messageReceived,
+				Signal:   "message.received",
 				Name:     "message_size_bytes",
-				Type:     MetricTypeHistogram,
-				ValueKey: sizeKey,
+				Type:     "histogram",
+				ValueKey: "size_bytes",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit size measurements
 	cap.Emit(ctx, messageReceived, sizeKey.Field(1024))
@@ -209,22 +234,27 @@ func TestMetricTypeUpDownCounterInt64(t *testing.T) {
 	queueDepth := capitan.NewSignal("queue.depth.changed", "Queue Depth Changed")
 	deltaKey := capitan.NewInt64Key("delta")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   queueDepth,
+				Signal:   "queue.depth.changed",
 				Name:     "queue_depth",
-				Type:     MetricTypeUpDownCounter,
-				ValueKey: deltaKey,
+				Type:     "updowncounter",
+				ValueKey: "delta",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit deltas (positive and negative)
 	cap.Emit(ctx, queueDepth, deltaKey.Field(5))  // +5
@@ -247,22 +277,27 @@ func TestMetricTypeUpDownCounterFloat64(t *testing.T) {
 	balanceChanged := capitan.NewSignal("balance.changed", "Balance Changed")
 	amountKey := capitan.NewFloat64Key("amount")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   balanceChanged,
+				Signal:   "balance.changed",
 				Name:     "account_balance",
-				Type:     MetricTypeUpDownCounter,
-				ValueKey: amountKey,
+				Type:     "updowncounter",
+				ValueKey: "amount",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit balance changes
 	cap.Emit(ctx, balanceChanged, amountKey.Field(100.50))
@@ -272,7 +307,7 @@ func TestMetricTypeUpDownCounterFloat64(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func TestMetricConfigValidation(t *testing.T) {
+func TestMetricSchemaValidation(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -283,44 +318,34 @@ func TestMetricConfigValidation(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  MetricConfig
+		schema  MetricSchema
 		wantErr bool
 	}{
 		{
 			name: "counter without ValueKey (valid)",
-			config: MetricConfig{
-				Signal: capitan.NewSignal("test.signal", "Test Signal"),
+			schema: MetricSchema{
+				Signal: "test.signal",
 				Name:   "test_counter",
-				Type:   MetricTypeCounter,
+				Type:   "counter",
 			},
 			wantErr: false,
 		},
 		{
 			name: "gauge without ValueKey (invalid)",
-			config: MetricConfig{
-				Signal: capitan.NewSignal("test.signal", "Test Signal"),
+			schema: MetricSchema{
+				Signal: "test.signal",
 				Name:   "test_gauge",
-				Type:   MetricTypeGauge,
+				Type:   "gauge",
 			},
 			wantErr: true,
 		},
 		{
-			name: "histogram with non-numeric ValueKey (invalid)",
-			config: MetricConfig{
-				Signal:   capitan.NewSignal("test.signal", "Test Signal"),
-				Name:     "test_histogram",
-				Type:     MetricTypeHistogram,
-				ValueKey: capitan.NewStringKey("value"),
-			},
-			wantErr: true,
-		},
-		{
-			name: "gauge with int64 ValueKey (valid)",
-			config: MetricConfig{
-				Signal:   capitan.NewSignal("test.signal", "Test Signal"),
+			name: "gauge with ValueKey (valid)",
+			schema: MetricSchema{
+				Signal:   "test.signal",
 				Name:     "test_gauge",
-				Type:     MetricTypeGauge,
-				ValueKey: capitan.NewInt64Key("value"),
+				Type:     "gauge",
+				ValueKey: "value",
 			},
 			wantErr: false,
 		},
@@ -328,11 +353,17 @@ func TestMetricConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Config{
-				Metrics: []MetricConfig{tt.config},
+			sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
+			if err != nil {
+				t.Fatalf("failed to create Aperture: %v", err)
+			}
+			defer sh.Close()
+
+			schema := Schema{
+				Metrics: []MetricSchema{tt.schema},
 			}
 
-			_, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+			err = sh.Apply(schema)
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")
 			}
@@ -362,39 +393,44 @@ func TestMixedMetricTypes(t *testing.T) {
 	durationKey := capitan.NewDurationKey("duration")
 	deltaKey := capitan.NewInt64Key("delta")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal: orderCreated,
+				Signal: "order.created",
 				Name:   "orders_total",
-				Type:   MetricTypeCounter,
+				Type:   "counter",
 			},
 			{
-				Signal:   cpuUsage,
+				Signal:   "cpu.usage",
 				Name:     "cpu_usage",
-				Type:     MetricTypeGauge,
-				ValueKey: usageKey,
+				Type:     "gauge",
+				ValueKey: "percent",
 			},
 			{
-				Signal:   requestCompleted,
+				Signal:   "request.completed",
 				Name:     "request_duration_ms",
-				Type:     MetricTypeHistogram,
-				ValueKey: durationKey,
+				Type:     "histogram",
+				ValueKey: "duration",
 			},
 			{
-				Signal:   queueDepth,
+				Signal:   "queue.depth",
 				Name:     "queue_depth",
-				Type:     MetricTypeUpDownCounter,
-				ValueKey: deltaKey,
+				Type:     "updowncounter",
+				ValueKey: "delta",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit various events
 	cap.Emit(ctx, orderCreated)
@@ -417,21 +453,26 @@ func TestDefaultMetricTypeIsCounter(t *testing.T) {
 
 	testSignal := capitan.NewSignal("test.signal", "Test Signal")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal: testSignal,
+				Signal: "test.signal",
 				Name:   "test_metric",
 				// Type not specified - should default to Counter
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	cap.Emit(ctx, testSignal)
 	time.Sleep(100 * time.Millisecond)
@@ -459,21 +500,26 @@ func TestExtractNumericValue_AllIntegerTypes(t *testing.T) {
 	// Test uint64
 	uint64Key := capitan.NewUint64Key("uint64_value")
 
-	config := &Config{
-		Metrics: []MetricConfig{
-			{Signal: testSignal, Name: "int_gauge", Type: MetricTypeGauge, ValueKey: intKey},
-			{Signal: testSignal, Name: "int32_gauge", Type: MetricTypeGauge, ValueKey: int32Key},
-			{Signal: testSignal, Name: "uint_gauge", Type: MetricTypeGauge, ValueKey: uintKey},
-			{Signal: testSignal, Name: "uint32_gauge", Type: MetricTypeGauge, ValueKey: uint32Key},
-			{Signal: testSignal, Name: "uint64_gauge", Type: MetricTypeGauge, ValueKey: uint64Key},
+	schema := Schema{
+		Metrics: []MetricSchema{
+			{Signal: "numeric.test", Name: "int_gauge", Type: "gauge", ValueKey: "int_value"},
+			{Signal: "numeric.test", Name: "int32_gauge", Type: "gauge", ValueKey: "int32_value"},
+			{Signal: "numeric.test", Name: "uint_gauge", Type: "gauge", ValueKey: "uint_value"},
+			{Signal: "numeric.test", Name: "uint32_gauge", Type: "gauge", ValueKey: "uint32_value"},
+			{Signal: "numeric.test", Name: "uint64_gauge", Type: "gauge", ValueKey: "uint64_value"},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit with all integer types
 	cap.Emit(ctx, testSignal,
@@ -501,17 +547,22 @@ func TestExtractNumericValue_AllFloatTypes(t *testing.T) {
 
 	float32Key := capitan.NewFloat32Key("float32_value")
 
-	config := &Config{
-		Metrics: []MetricConfig{
-			{Signal: testSignal, Name: "float32_gauge", Type: MetricTypeGauge, ValueKey: float32Key},
+	schema := Schema{
+		Metrics: []MetricSchema{
+			{Signal: "float.test", Name: "float32_gauge", Type: "gauge", ValueKey: "float32_value"},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	cap.Emit(ctx, testSignal, float32Key.Field(float32(3.14)))
 
@@ -531,22 +582,27 @@ func TestRecordHistogram_FloatVariant(t *testing.T) {
 	testSignal := capitan.NewSignal("histogram.float.test", "Histogram Float Test")
 	valueKey := capitan.NewFloat64Key("value")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   testSignal,
+				Signal:   "histogram.float.test",
 				Name:     "float_histogram",
-				Type:     MetricTypeHistogram,
-				ValueKey: valueKey,
+				Type:     "histogram",
+				ValueKey: "value",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit multiple values to exercise histogram recording
 	cap.Emit(ctx, testSignal, valueKey.Field(1.5))
@@ -567,24 +623,28 @@ func TestExtractNumericValue_MissingKey(t *testing.T) {
 	}
 
 	testSignal := capitan.NewSignal("missing.key.test", "Missing Key Test")
-	valueKey := capitan.NewInt64Key("value")
 
-	config := &Config{
-		Metrics: []MetricConfig{
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   testSignal,
+				Signal:   "missing.key.test",
 				Name:     "missing_key_gauge",
-				Type:     MetricTypeGauge,
-				ValueKey: valueKey,
+				Type:     "gauge",
+				ValueKey: "value",
 			},
 		},
 	}
 
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
 	defer sh.Close()
+
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit without the expected key - should not panic
 	cap.Emit(ctx, testSignal)
@@ -604,12 +664,10 @@ func TestMetricsHandler_NilHandler(t *testing.T) {
 }
 
 func TestValidateMetricConfig_EmptyName(t *testing.T) {
-	testSignal := capitan.NewSignal("test.signal", "Test Signal")
-
-	config := MetricConfig{
-		Signal: testSignal,
-		Name:   "", // Empty name
-		Type:   MetricTypeCounter,
+	config := metricConfig{
+		SignalName: "test.signal",
+		Name:       "", // Empty name
+		Type:       MetricTypeCounter,
 	}
 
 	err := validateMetricConfig(config)
@@ -638,7 +696,7 @@ func TestNumericValue_Conversions(t *testing.T) {
 	}
 }
 
-func TestExtractNumericValue_NilKey(t *testing.T) {
+func TestExtractNumericValue_NilKeyName(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -660,7 +718,7 @@ func TestExtractNumericValue_NilKey(t *testing.T) {
 	})
 
 	// Create aperture to ensure hooks work
-	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace, nil)
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create Aperture: %v", err)
 	}
@@ -678,14 +736,14 @@ func TestExtractNumericValue_NilKey(t *testing.T) {
 		t.Fatal("event was not captured")
 	}
 
-	// Extract with nil key
-	result := extractNumericValue(evt, nil)
+	// Extract with empty key name
+	result := extractNumericValueByName(evt, "")
 	if result != nil {
-		t.Error("expected nil for nil key")
+		t.Error("expected nil for empty key name")
 	}
 }
 
-func TestCreateInstrumentErrors(t *testing.T) {
+func TestInvalidMetricType(t *testing.T) {
 	ctx := context.Background()
 	cap := capitan.New()
 
@@ -694,23 +752,28 @@ func TestCreateInstrumentErrors(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	testSignal := capitan.NewSignal("test.signal", "Test Signal")
-	stringKey := capitan.NewStringKey("value")
-
-	// Test with unknown metric type (should be caught by validation)
-	config := &Config{
-		Metrics: []MetricConfig{
+	// Test with unknown metric type - schema with string type gets parsed
+	// and unknown types default to counter, so no error
+	schema := Schema{
+		Metrics: []MetricSchema{
 			{
-				Signal:   testSignal,
+				Signal:   "test.signal",
 				Name:     "test_metric",
 				Type:     "unknown_type",
-				ValueKey: stringKey,
+				ValueKey: "value",
 			},
 		},
 	}
 
-	_, err = New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
-	if err == nil {
-		t.Error("expected error for unknown metric type")
+	sh, err := New(cap, pvs.Log, pvs.Meter, pvs.Trace)
+	if err != nil {
+		t.Fatalf("failed to create Aperture: %v", err)
+	}
+	defer sh.Close()
+
+	// Unknown type defaults to counter, which doesn't require ValueKey validation
+	err = sh.Apply(schema)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

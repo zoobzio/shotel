@@ -23,7 +23,7 @@ func BenchmarkEmit_NoConfig(b *testing.B) {
 	key := capitan.NewStringKey("key")
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}
@@ -50,22 +50,27 @@ func BenchmarkEmit_WithMetricsCounter(b *testing.B) {
 	sig := capitan.NewSignal("bench.counter", "Benchmark counter signal")
 	key := capitan.NewStringKey("key")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal: sig,
+				Signal: "bench.counter",
 				Name:   "bench_counter_total",
-				Type:   aperture.MetricTypeCounter,
+				Type:   "counter",
 			},
 		},
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		b.Fatalf("Apply failed: %v", err)
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -88,23 +93,28 @@ func BenchmarkEmit_WithMetricsHistogram(b *testing.B) {
 	sig := capitan.NewSignal("bench.histogram", "Benchmark histogram signal")
 	durationKey := capitan.NewDurationKey("duration")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal:   sig,
+				Signal:   "bench.histogram",
 				Name:     "bench_duration_ms",
-				Type:     aperture.MetricTypeHistogram,
-				ValueKey: durationKey,
+				Type:     "histogram",
+				ValueKey: "duration",
 			},
 		},
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		b.Fatalf("Apply failed: %v", err)
+	}
 
 	duration := 100 * time.Millisecond
 
@@ -129,18 +139,23 @@ func BenchmarkEmit_WithLogs(b *testing.B) {
 	sig := capitan.NewSignal("bench.logs", "Benchmark log signal")
 	key := capitan.NewStringKey("key")
 
-	config := &aperture.Config{
-		Logs: &aperture.LogConfig{
-			Whitelist: []capitan.Signal{sig},
+	schema := aperture.Schema{
+		Logs: &aperture.LogSchema{
+			Whitelist: []string{"bench.logs"},
 		},
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		b.Fatalf("Apply failed: %v", err)
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -183,7 +198,7 @@ func BenchmarkEmit_MultipleFields(b *testing.B) {
 			defer cap.Shutdown()
 
 			mockLog := apertesting.NewMockLoggerProvider()
-			ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
+			ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 			if err != nil {
 				b.Fatalf("failed to create aperture: %v", err)
 			}
@@ -212,21 +227,26 @@ func BenchmarkEmit_Combined(b *testing.B) {
 	sig := capitan.NewSignal("bench.combined", "Benchmark combined signal")
 	key := capitan.NewStringKey("key")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
-			{Signal: sig, Name: "bench_combined_total", Type: aperture.MetricTypeCounter},
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
+			{Signal: "bench.combined", Name: "bench_combined_total", Type: "counter"},
 		},
-		Logs: &aperture.LogConfig{
-			Whitelist: []capitan.Signal{sig},
+		Logs: &aperture.LogSchema{
+			Whitelist: []string{"bench.combined"},
 		},
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		b.Fatalf("Apply failed: %v", err)
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -250,23 +270,28 @@ func BenchmarkTraceCorrelation(b *testing.B) {
 	reqEnded := capitan.NewSignal("bench.trace.end", "Benchmark trace end")
 	requestID := capitan.NewStringKey("request_id")
 
-	config := &aperture.Config{
-		Traces: []aperture.TraceConfig{
+	schema := aperture.Schema{
+		Traces: []aperture.TraceSchema{
 			{
-				Start:          reqStarted,
-				End:            reqEnded,
-				CorrelationKey: &requestID,
+				Start:          "bench.trace.start",
+				End:            "bench.trace.end",
+				CorrelationKey: "request_id",
 				SpanName:       "bench_span",
 			},
 		},
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		b.Fatalf("Apply failed: %v", err)
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -326,7 +351,7 @@ func BenchmarkMockLoggerEmit(b *testing.B) {
 	sig := capitan.NewSignal("bench.mock", "Benchmark mock logger")
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		b.Fatalf("failed to create aperture: %v", err)
 	}

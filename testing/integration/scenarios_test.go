@@ -21,12 +21,12 @@ func TestScenario_MetricsCounter(t *testing.T) {
 	orderCreated := capitan.NewSignal("order.created", "Order created")
 	orderID := capitan.NewStringKey("order_id")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal:      orderCreated,
+				Signal:      "order.created",
 				Name:        "orders_created_total",
-				Type:        aperture.MetricTypeCounter,
+				Type:        "counter",
 				Description: "Total orders created",
 			},
 		},
@@ -37,11 +37,16 @@ func TestScenario_MetricsCounter(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit multiple events
 	for i := 0; i < 5; i++ {
@@ -63,13 +68,13 @@ func TestScenario_MetricsGauge(t *testing.T) {
 	cpuUsage := capitan.NewSignal("system.cpu", "CPU usage measurement")
 	percentKey := capitan.NewFloat64Key("percent")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal:   cpuUsage,
+				Signal:   "system.cpu",
 				Name:     "cpu_usage_percent",
-				Type:     aperture.MetricTypeGauge,
-				ValueKey: percentKey,
+				Type:     "gauge",
+				ValueKey: "percent",
 			},
 		},
 	}
@@ -79,11 +84,16 @@ func TestScenario_MetricsGauge(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit gauge readings
 	cap.Emit(ctx, cpuUsage, percentKey.Field(45.5))
@@ -102,13 +112,13 @@ func TestScenario_MetricsHistogram(t *testing.T) {
 	requestDone := capitan.NewSignal("request.done", "Request completed")
 	durationKey := capitan.NewDurationKey("duration")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal:   requestDone,
+				Signal:   "request.done",
 				Name:     "request_duration_ms",
-				Type:     aperture.MetricTypeHistogram,
-				ValueKey: durationKey,
+				Type:     "histogram",
+				ValueKey: "duration",
 			},
 		},
 	}
@@ -118,11 +128,16 @@ func TestScenario_MetricsHistogram(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit duration measurements
 	durations := []time.Duration{
@@ -150,14 +165,14 @@ func TestScenario_TraceCorrelation(t *testing.T) {
 	reqCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestID := capitan.NewStringKey("request_id")
 
-	config := &aperture.Config{
-		Traces: []aperture.TraceConfig{
+	schema := aperture.Schema{
+		Traces: []aperture.TraceSchema{
 			{
-				Start:          reqStarted,
-				End:            reqCompleted,
-				CorrelationKey: &requestID,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "http_request",
-				SpanTimeout:    time.Minute,
+				SpanTimeout:    "1m",
 			},
 		},
 	}
@@ -167,11 +182,16 @@ func TestScenario_TraceCorrelation(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit correlated events
 	cap.Emit(ctx, reqStarted, requestID.Field("REQ-001"))
@@ -196,12 +216,12 @@ func TestScenario_TraceOutOfOrder(t *testing.T) {
 	reqCompleted := capitan.NewSignal("request.completed", "Request completed")
 	requestID := capitan.NewStringKey("request_id")
 
-	config := &aperture.Config{
-		Traces: []aperture.TraceConfig{
+	schema := aperture.Schema{
+		Traces: []aperture.TraceSchema{
 			{
-				Start:          reqStarted,
-				End:            reqCompleted,
-				CorrelationKey: &requestID,
+				Start:          "request.started",
+				End:            "request.completed",
+				CorrelationKey: "request_id",
 				SpanName:       "http_request",
 			},
 		},
@@ -212,11 +232,16 @@ func TestScenario_TraceOutOfOrder(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// End arrives before start (out of order)
 	cap.Emit(ctx, reqCompleted, requestID.Field("REQ-OOO"))
@@ -236,22 +261,27 @@ func TestScenario_LogWhitelist(t *testing.T) {
 	orderFailed := capitan.NewSignal("order.failed", "Order failed")
 	orderShipped := capitan.NewSignal("order.shipped", "Order shipped")
 
-	config := &aperture.Config{
-		Logs: &aperture.LogConfig{
-			Whitelist: []capitan.Signal{
-				orderCreated,
-				orderFailed,
+	schema := aperture.Schema{
+		Logs: &aperture.LogSchema{
+			Whitelist: []string{
+				"order.created",
+				"order.failed",
 				// orderShipped intentionally excluded
 			},
 		},
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit all three signals
 	cap.Emit(ctx, orderCreated)
@@ -279,7 +309,7 @@ func TestScenario_LogAllEvents(t *testing.T) {
 
 	// No log config = log all events
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), nil)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
@@ -308,20 +338,26 @@ func TestScenario_ContextExtraction(t *testing.T) {
 
 	orderCreated := capitan.NewSignal("order.created", "Order created")
 
-	config := &aperture.Config{
-		ContextExtraction: &aperture.ContextExtractionConfig{
-			Logs: []aperture.ContextKey{
-				{Key: userIDKey, Name: "user_id"},
-			},
-		},
-	}
-
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	// Register context key first
+	ap.RegisterContextKey("user_id", userIDKey)
+
+	schema := aperture.Schema{
+		Context: &aperture.ContextSchema{
+			Logs: []string{"user_id"},
+		},
+	}
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Add user ID to context
 	ctx = context.WithValue(ctx, userIDKey, "user-123")
@@ -346,16 +382,21 @@ func TestScenario_StdoutLogging(t *testing.T) {
 
 	sig := capitan.NewSignal("test.stdout", "Test stdout logging")
 
-	config := &aperture.Config{
-		StdoutLogging: true,
+	schema := aperture.Schema{
+		Stdout: true,
 	}
 
 	mockLog := apertesting.NewMockLoggerProvider()
-	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider(), config)
+	ap, err := aperture.New(cap, mockLog, noop.NewMeterProvider(), tracenoop.NewTracerProvider())
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit event - should also log to stdout
 	cap.Emit(ctx, sig)
@@ -375,30 +416,30 @@ func TestScenario_CombinedConfiguration(t *testing.T) {
 	orderID := capitan.NewStringKey("order_id")
 	totalKey := capitan.NewFloat64Key("total")
 
-	config := &aperture.Config{
-		Metrics: []aperture.MetricConfig{
+	schema := aperture.Schema{
+		Metrics: []aperture.MetricSchema{
 			{
-				Signal: orderCreated,
+				Signal: "order.created",
 				Name:   "orders_created_total",
-				Type:   aperture.MetricTypeCounter,
+				Type:   "counter",
 			},
 			{
-				Signal:   orderCompleted,
+				Signal:   "order.completed",
 				Name:     "order_value",
-				Type:     aperture.MetricTypeHistogram,
-				ValueKey: totalKey,
+				Type:     "histogram",
+				ValueKey: "total",
 			},
 		},
-		Traces: []aperture.TraceConfig{
+		Traces: []aperture.TraceSchema{
 			{
-				Start:          orderCreated,
-				End:            orderCompleted,
-				CorrelationKey: &orderID,
+				Start:          "order.created",
+				End:            "order.completed",
+				CorrelationKey: "order_id",
 				SpanName:       "order_processing",
 			},
 		},
-		Logs: &aperture.LogConfig{
-			Whitelist: []capitan.Signal{orderCreated, orderCompleted},
+		Logs: &aperture.LogSchema{
+			Whitelist: []string{"order.created", "order.completed"},
 		},
 	}
 
@@ -407,11 +448,16 @@ func TestScenario_CombinedConfiguration(t *testing.T) {
 		t.Fatalf("failed to create providers: %v", err)
 	}
 
-	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+	ap, err := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 	if err != nil {
 		t.Fatalf("failed to create aperture: %v", err)
 	}
 	defer ap.Close()
+
+	err = ap.Apply(schema)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
 
 	// Emit a complete order flow
 	cap.Emit(ctx, orderCreated, orderID.Field("ORD-001"))

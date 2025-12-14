@@ -2,71 +2,28 @@ package aperture
 
 import (
 	"time"
-
-	"github.com/zoobzio/capitan"
-	"go.opentelemetry.io/otel/log"
 )
 
-// Config configures how capitan events are transformed to OTEL signals.
-type Config struct {
+// config is the internal runtime configuration for aperture.
+// Users configure via Schema (YAML/JSON), which is converted to config via buildConfig().
+type config struct {
 	// Metrics specifies which signals should be auto-converted to OTEL counters.
-	Metrics []MetricConfig
+	Metrics []metricConfig
 
 	// Logs configures which signals should be logged.
 	// If nil or empty, all signals are logged (default behavior).
-	Logs *LogConfig
+	Logs *logConfig
 
 	// Traces configures signal pairs that should be correlated into spans.
-	Traces []TraceConfig
+	Traces []traceConfig
 
 	// ContextExtraction specifies context keys to extract and add to OTEL signals.
 	// If nil, no context extraction is performed.
-	ContextExtraction *ContextExtractionConfig
+	ContextExtraction *contextExtractionConfig
 
 	// StdoutLogging enables duplication of OTEL output to stdout.
 	// When true, all OTEL signals are logged to stdout in human-readable format using slog.
 	StdoutLogging bool
-
-	// Transformers registers custom field transformers for user-defined types.
-	// Keys are capitan variants, values are transformer functions.
-	// Use RegisterTransformer helper to build this map with type safety.
-	Transformers map[capitan.Variant]FieldTransformer
-}
-
-// FieldTransformer converts a capitan field to OTEL log attributes.
-// Return nil or empty slice to skip the field.
-type FieldTransformer func(f capitan.Field) []log.KeyValue
-
-// TransformerFunc is a type-safe transformer for a specific field type.
-// Use with MakeTransformer to create a FieldTransformer.
-type TransformerFunc[T any] func(key string, value T) []log.KeyValue
-
-// MakeTransformer creates a FieldTransformer from a type-safe TransformerFunc.
-//
-// Example:
-//
-//	type OrderInfo struct {
-//	    ID    string
-//	    Total float64
-//	}
-//
-//	config := &aperture.Config{
-//	    Transformers: map[capitan.Variant]aperture.FieldTransformer{
-//	        orderVariant: aperture.MakeTransformer(func(key string, order OrderInfo) []log.KeyValue {
-//	            return []log.KeyValue{
-//	                log.String(key+".id", order.ID),
-//	                log.Float64(key+".total", order.Total),
-//	            }
-//	        }),
-//	    },
-//	}
-func MakeTransformer[T any](fn TransformerFunc[T]) FieldTransformer {
-	return func(f capitan.Field) []log.KeyValue {
-		if gf, ok := f.(capitan.GenericField[T]); ok {
-			return fn(f.Key().Name(), gf.Get())
-		}
-		return nil
-	}
 }
 
 // MetricType specifies the type of OTEL metric instrument.
@@ -90,50 +47,48 @@ const (
 	MetricTypeHistogram MetricType = "histogram"
 )
 
-// MetricConfig defines a signal-to-metric conversion.
-type MetricConfig struct {
-	// Signal is the capitan signal to observe.
-	Signal capitan.Signal
+// metricConfig defines a signal-to-metric conversion (internal).
+type metricConfig struct {
+	// SignalName is the name of the capitan signal to observe.
+	SignalName string
 
 	// Name is the OTEL metric name.
-	// Required - must be a valid OTEL metric name.
 	Name string
 
 	// Type is the metric instrument type.
 	// Defaults to MetricTypeCounter if not specified.
 	Type MetricType
 
-	// ValueKey is the field key to extract metric value from.
+	// ValueKeyName is the name of the field key to extract metric value from.
 	// Required for Gauge, Histogram, and UpDownCounter.
 	// Not used for Counter (counts signal occurrences).
-	// Must have a numeric variant (int, int64, float64, etc.).
-	ValueKey capitan.Key
+	ValueKeyName string
 
 	// Description is optional metric description.
 	Description string
 }
 
-// LogConfig configures log filtering.
-type LogConfig struct {
-	// Whitelist specifies which signals should be logged.
+// logConfig configures log filtering (internal).
+type logConfig struct {
+	// WhitelistNames specifies signal names to log.
 	// If empty, all signals are logged.
-	Whitelist []capitan.Signal
+	WhitelistNames []string
 }
 
-// TraceConfig defines a signal pair that forms a trace span.
-type TraceConfig struct {
-	// Start is the signal that begins the span.
-	Start capitan.Signal
+// traceConfig defines a signal pair that forms a trace span (internal).
+type traceConfig struct {
+	// StartSignalName is the name of the signal that begins the span.
+	StartSignalName string
 
-	// End is the signal that completes the span.
-	End capitan.Signal
+	// EndSignalName is the name of the signal that completes the span.
+	EndSignalName string
 
-	// CorrelationKey is the field key used to correlate start/end events.
+	// CorrelationKeyName is the name of the field key used to correlate start/end events.
 	// Both start and end events must have this field with matching values.
-	CorrelationKey *capitan.StringKey
+	CorrelationKeyName string
 
 	// SpanName is the name of the generated span.
-	// If empty, uses the Start signal as the span name.
+	// If empty, uses the start signal name.
 	SpanName string
 
 	// SpanTimeout is the maximum duration to wait for an end event.
@@ -153,8 +108,8 @@ type ContextKey struct {
 	Name string
 }
 
-// ContextExtractionConfig defines context values to extract for each signal type.
-type ContextExtractionConfig struct {
+// contextExtractionConfig defines context values to extract for each signal type (internal).
+type contextExtractionConfig struct {
 	// Logs specifies context keys to extract and add to log attributes.
 	Logs []ContextKey
 

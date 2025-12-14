@@ -18,7 +18,7 @@ import (
 // Example:
 //
 //	pvs := &aperture.Providers{Log: logProvider, Meter: meterProvider, Trace: traceProvider}
-//	ap, _ := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace, config)
+//	ap, _ := aperture.New(cap, pvs.Log, pvs.Meter, pvs.Trace)
 //	defer pvs.Shutdown(ctx)
 //	defer ap.Close()
 type Providers struct {

@@ -13,17 +13,19 @@ Config-driven bridge from [capitan](https://github.com/zoobzio/capitan) events t
 
 Emit a capitan event, aperture transforms it into OTEL logs, metrics, and traces. Define your signals in code, configure observability in YAML, change what's observed at runtime without recompiling.
 
-## Two Layers
+## Simple API
 
 ```go
-// 1. Register your domain signals (compile-time, type-safe)
-registry := aperture.NewRegistry()
-registry.Register(orderCreated, orderCompleted)
-registry.RegisterKey(orderID, duration)
+// Create aperture with your OTEL providers
+ap, _ := aperture.New(cap, logProvider, meterProvider, traceProvider)
+defer ap.Close()
+
+// Load and apply configuration
+schema, _ := aperture.LoadSchemaFromYAML(configBytes)
+ap.Apply(schema)
 ```
 
 ```yaml
-# 2. Configure what becomes observable (runtime, hot-reloadable)
 # observability.yaml
 metrics:
   - signal: order.created
@@ -35,13 +37,11 @@ traces:
     end: order.completed
     correlation_key: order_id
     span_name: order_processing
-```
 
-```go
-// 3. Build and bridge
-schema, _ := aperture.LoadSchemaFromYAML(configBytes)
-config, _ := registry.Build(schema)  // Validates references exist
-ap, _ := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider, config)
+logs:
+  whitelist:
+    - order.created
+    - order.completed
 ```
 
 Signals are type-safe. Configuration is data. Change what's observed without touching code.
@@ -81,12 +81,17 @@ var (
 func main() {
     ctx := context.Background()
 
-    // Register what exists in the system
-    registry := aperture.NewRegistry()
-    registry.Register(orderCreated, orderCompleted)
-    registry.RegisterKey(orderID, duration)
+    // Create OTEL providers (your setup, your exporters)
+    logProvider, meterProvider, traceProvider := setupOTEL()
 
-    // Load configuration (could be from file, env, remote config...)
+    // Create aperture bridge
+    ap, err := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer ap.Close()
+
+    // Load and apply configuration
     configBytes, err := os.ReadFile("observability.yaml")
     if err != nil {
         log.Fatal(err)
@@ -95,19 +100,9 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-
-    // Validate and build - fails if config references unknown signals
-    config, err := registry.Build(schema)
-    if err != nil {
+    if err := ap.Apply(schema); err != nil {
         log.Fatal(err)
     }
-
-    // Create OTEL providers (your setup, your exporters)
-    logProvider, meterProvider, traceProvider := setupOTEL()
-
-    // Bridge capitan to OTEL
-    ap, _ := aperture.New(capitan.Default(), logProvider, meterProvider, traceProvider, config)
-    defer ap.Close()
 
     // Emit domain events - aperture handles observability
     capitan.Emit(ctx, orderCreated, orderID.Field("ORD-123"))
@@ -144,11 +139,12 @@ logs:
 ## Why aperture?
 
 - **Config-driven** — Change what's observed without recompiling
-- **Type-safe registration** — Unknown signals in config fail at startup, not runtime
+- **Schema-based** — Load configuration from YAML or JSON
 - **All three signals** — Logs, metrics, and traces from a single event stream
 - **Hot-reloadable** — Pair with [flux](https://github.com/zoobzio/flux) for live config updates
 - **Zero instrumentation** — Domain events become telemetry automatically
 - **Trace correlation** — Pair start/end events into spans automatically
+- **JSON serialization** — Custom field types automatically serialized
 
 ## Signal Transformations
 
