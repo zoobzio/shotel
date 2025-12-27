@@ -11,9 +11,7 @@ import (
 
 // metricInstrument holds a configured OTEL metric instrument.
 type metricInstrument struct {
-	config metricConfig
-
-	// Only one of these will be set based on Type
+	// Interfaces (16 bytes each) - only one of these will be set based on Type
 	// For counters, always int64
 	// For others, both int64 and float64 are created to handle any numeric type
 	int64Counter         metric.Int64Counter
@@ -23,6 +21,8 @@ type metricInstrument struct {
 	float64Gauge         metric.Float64Gauge
 	int64Histogram       metric.Int64Histogram
 	float64Histogram     metric.Float64Histogram
+
+	config metricConfig
 }
 
 // metricsHandler manages auto-conversion of signals to OTEL metrics.

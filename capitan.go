@@ -9,14 +9,14 @@ import (
 
 // capitanObserver observes all capitan events and transforms them to OTEL signals.
 type capitanObserver struct {
-	observer       *capitan.Observer
-	logger         log.Logger
+	logger         log.Logger          // interface (16 bytes) - pointers first
+	observer       *capitan.Observer   // pointers (8 bytes each)
 	metricsHandler *metricsHandler
 	tracesHandler  *tracesHandler
 	logWhitelist   map[string]struct{} // signal name → allowed
-	logContextKeys []ContextKey
 	stdoutLogger   *stdoutLogger
 	internal       *internalObserver
+	logContextKeys []ContextKey // slice last (pointer in first 8 bytes)
 }
 
 // newCapitanObserver creates and attaches an observer to the capitan instance.

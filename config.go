@@ -7,19 +7,21 @@ import (
 // config is the internal runtime configuration for aperture.
 // Users configure via Schema (YAML/JSON), which is converted to config via buildConfig().
 type config struct {
-	// Metrics specifies which signals should be auto-converted to OTEL counters.
-	Metrics []metricConfig
-
+	// Pointers first for optimal GC pointer bitmap
 	// Logs configures which signals should be logged.
 	// If nil or empty, all signals are logged (default behavior).
 	Logs *logConfig
 
-	// Traces configures signal pairs that should be correlated into spans.
-	Traces []traceConfig
-
 	// ContextExtraction specifies context keys to extract and add to OTEL signals.
 	// If nil, no context extraction is performed.
 	ContextExtraction *contextExtractionConfig
+
+	// Slices (pointer in first 8 bytes)
+	// Metrics specifies which signals should be auto-converted to OTEL counters.
+	Metrics []metricConfig
+
+	// Traces configures signal pairs that should be correlated into spans.
+	Traces []traceConfig
 
 	// StdoutLogging enables duplication of OTEL output to stdout.
 	// When true, all OTEL signals are logged to stdout in human-readable format using slog.

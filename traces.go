@@ -11,42 +11,41 @@ import (
 
 // pendingSpan holds start event data waiting for the corresponding end event.
 type pendingSpan struct {
-	startTime     time.Time
-	startCtx      context.Context
-	spanName      string
+	startTime  time.Time       // time.Time (24 bytes)
+	receivedAt time.Time       // For cleanup timeout
+	startCtx   context.Context // interface (16 bytes)
+	spanName      string       // strings (16 bytes each)
 	correlationID string
-	receivedAt    time.Time // For cleanup timeout
 }
 
 // pendingEnd holds end event data waiting for the corresponding start event.
 type pendingEnd struct {
-	endTime       time.Time
-	endCtx        context.Context
-	correlationID string
+	endTime    time.Time       // time.Time (24 bytes)
+	receivedAt time.Time       // For cleanup timeout
+	endCtx     context.Context // interface (16 bytes)
+	correlationID string       // strings (16 bytes each)
 	spanName      string
-	receivedAt    time.Time // For cleanup timeout
 }
 
 // tracesHandler manages trace correlation from signal pairs.
 type tracesHandler struct {
+	// Interface first (16 bytes, all pointers)
 	tracer trace.Tracer
-	config []traceConfig
 
-	// Track pending starts and ends by correlation ID
+	// Pointers and maps (8 bytes each)
 	pendingStarts map[string]*pendingSpan
 	pendingEnds   map[string]*pendingEnd
-	mu            sync.Mutex
-
-	// Cleanup management
 	cleanupTicker *time.Ticker
 	stopCleanup   chan struct{}
-	maxTimeout    time.Duration
+	internal      *internalObserver
 
-	// Context extraction
+	// Slices (pointer in first 8 bytes)
+	config      []traceConfig
 	contextKeys []ContextKey
 
-	// Internal diagnostics
-	internal *internalObserver
+	// Non-pointer fields
+	maxTimeout time.Duration
+	mu         sync.Mutex
 }
 
 // newTracesHandler creates a traces handler from config.
@@ -175,9 +174,10 @@ func (th *tracesHandler) handleEvent(ctx context.Context, e *capitan.Event) {
 
 	// Check each trace configuration (match by signal name)
 	for _, tc := range th.config {
-		if signalName == tc.StartSignalName {
+		switch signalName {
+		case tc.StartSignalName:
 			th.handleStart(ctx, e, tc)
-		} else if signalName == tc.EndSignalName {
+		case tc.EndSignalName:
 			th.handleEnd(ctx, e, tc)
 		}
 	}

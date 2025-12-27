@@ -81,22 +81,21 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v7
       with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+        version: v2.7.2
+        args: --config=.golangci.yml --timeout=5m
+        skip-cache: false
+        skip-save-cache: false
 
-    - name: Download dependencies
-      run: go mod download
-
-    - name: Install golangci-lint
-      run: make install-tools
-
-    - name: Run linters
-      run: make lint
+    - name: Security Report
+      if: always()
+      run: |
+        golangci-lint run --config=.golangci.yml --out-format=json > lint-report.json || true
+        echo "### Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "Linters with findings:" >> $GITHUB_STEP_SUMMARY
+        jq -r '.Issues[] | .FromLinter' lint-report.json 2>/dev/null | sort | uniq -c | sort -nr >> $GITHUB_STEP_SUMMARY || echo "No issues found ✅" >> $GITHUB_STEP_SUMMARY
 
   coverage:
     name: Coverage

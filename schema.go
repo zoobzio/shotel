@@ -28,18 +28,20 @@ func LoadSchemaFromJSON(data []byte) (Schema, error) {
 // Schema is the serializable configuration for aperture.
 // Load from YAML or JSON via [LoadSchemaFromYAML] or [LoadSchemaFromJSON], then apply via [Aperture.Apply].
 type Schema struct {
-	// Metrics specifies which signals should be converted to OTEL metrics.
-	Metrics []MetricSchema `json:"metrics,omitempty" yaml:"metrics,omitempty"`
-
-	// Traces specifies signal pairs that should be correlated into spans.
-	Traces []TraceSchema `json:"traces,omitempty" yaml:"traces,omitempty"`
-
+	// Pointers first for optimal GC pointer bitmap
 	// Logs configures which signals should be logged.
 	// If nil or empty whitelist, all signals are logged.
 	Logs *LogSchema `json:"logs,omitempty" yaml:"logs,omitempty"`
 
 	// Context specifies context keys to extract for each signal type.
 	Context *ContextSchema `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// Slices (pointer in first 8 bytes)
+	// Metrics specifies which signals should be converted to OTEL metrics.
+	Metrics []MetricSchema `json:"metrics,omitempty" yaml:"metrics,omitempty"`
+
+	// Traces specifies signal pairs that should be correlated into spans.
+	Traces []TraceSchema `json:"traces,omitempty" yaml:"traces,omitempty"`
 
 	// Stdout enables duplication of OTEL output to stdout.
 	Stdout bool `json:"stdout,omitempty" yaml:"stdout,omitempty"`

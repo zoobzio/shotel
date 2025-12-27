@@ -85,15 +85,19 @@ import (
 
 // Aperture bridges capitan events to OTEL providers.
 type Aperture struct {
-	capitan       *capitan.Capitan
+	// Interfaces (16 bytes each)
 	logProvider   log.LoggerProvider
 	meterProvider metric.MeterProvider
 	traceProvider trace.TracerProvider
 
-	config           config
+	// Pointers and maps (8 bytes each)
+	capitan          *capitan.Capitan
 	contextKeys      map[string]any // name → context key for ctx.Value()
 	capitanObserver  *capitanObserver
 	internalObserver *internalObserver
+
+	// Embedded struct
+	config config
 
 	mu sync.RWMutex
 }

@@ -151,9 +151,9 @@ func TestProviders(ctx context.Context, serviceName, serviceVersion, otlpEndpoin
 // LogCapture captures OTEL log records for testing and verification.
 // Thread-safe for concurrent log capture.
 type LogCapture struct {
-	records []log.Record
-	mu      sync.Mutex
-	notify  chan struct{}
+	notify  chan struct{} // channel pointer first
+	records []log.Record  // slice (pointer in first 8 bytes)
+	mu      sync.Mutex    // no pointers
 }
 
 // NewLogCapture creates a new LogCapture instance.
