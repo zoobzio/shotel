@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zoobzio/capitan"
+	"github.com/zoobz-io/capitan"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/embedded"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"

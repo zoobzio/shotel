@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	apertesting "github.com/zoobzio/aperture/testing"
-	"github.com/zoobzio/capitan"
+	apertesting "github.com/zoobz-io/aperture/testing"
+	"github.com/zoobz-io/capitan"
 	"go.opentelemetry.io/otel/log"
 )
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zoobzio/capitan"
+	"github.com/zoobz-io/capitan"
 	"go.opentelemetry.io/otel/log"
 )
 

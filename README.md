@@ -1,15 +1,15 @@
 # aperture
 
-[![CI Status](https://github.com/zoobzio/aperture/workflows/CI/badge.svg)](https://github.com/zoobzio/aperture/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/zoobzio/aperture/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobzio/aperture)
-[![Go Report Card](https://goreportcard.com/badge/github.com/zoobzio/aperture)](https://goreportcard.com/report/github.com/zoobzio/aperture)
-[![CodeQL](https://github.com/zoobzio/aperture/workflows/CodeQL/badge.svg)](https://github.com/zoobzio/aperture/security/code-scanning)
-[![Go Reference](https://pkg.go.dev/badge/github.com/zoobzio/aperture.svg)](https://pkg.go.dev/github.com/zoobzio/aperture)
-[![License](https://img.shields.io/github/license/zoobzio/aperture)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/aperture)](go.mod)
-[![Release](https://img.shields.io/github/v/release/zoobzio/aperture)](https://github.com/zoobzio/aperture/releases)
+[![CI Status](https://github.com/zoobz-io/aperture/workflows/CI/badge.svg)](https://github.com/zoobz-io/aperture/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/zoobz-io/aperture/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobz-io/aperture)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zoobz-io/aperture)](https://goreportcard.com/report/github.com/zoobz-io/aperture)
+[![CodeQL](https://github.com/zoobz-io/aperture/workflows/CodeQL/badge.svg)](https://github.com/zoobz-io/aperture/security/code-scanning)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zoobz-io/aperture.svg)](https://pkg.go.dev/github.com/zoobz-io/aperture)
+[![License](https://img.shields.io/github/license/zoobz-io/aperture)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobz-io/aperture)](go.mod)
+[![Release](https://img.shields.io/github/v/release/zoobz-io/aperture)](https://github.com/zoobz-io/aperture/releases)
 
-Config-driven bridge from [capitan](https://github.com/zoobzio/capitan) events to OpenTelemetry signals.
+Config-driven bridge from [capitan](https://github.com/zoobz-io/capitan) events to OpenTelemetry signals.
 
 Emit a capitan event, aperture transforms it into OTEL logs, metrics, and traces. Define your signals in code, configure observability in YAML, change what's observed at runtime without recompiling.
 
@@ -49,7 +49,7 @@ Signals are type-safe. Configuration is data. Change what's observed without tou
 ## Installation
 
 ```bash
-go get github.com/zoobzio/aperture
+go get github.com/zoobz-io/aperture
 ```
 
 Requires Go 1.24+.
@@ -65,8 +65,8 @@ import (
     "os"
     "time"
 
-    "github.com/zoobzio/aperture"
-    "github.com/zoobzio/capitan"
+    "github.com/zoobz-io/aperture"
+    "github.com/zoobz-io/capitan"
     // OTEL imports omitted for brevity
 )
 
@@ -142,7 +142,7 @@ logs:
 - **Config-driven** — Change what's observed without recompiling
 - **Schema-based** — Load configuration from YAML or JSON
 - **All three signals** — Logs, metrics, and traces from a single event stream
-- **Hot-reloadable** — Pair with [flux](https://github.com/zoobzio/flux) for live config updates
+- **Hot-reloadable** — Pair with [flux](https://github.com/zoobz-io/flux) for live config updates
 - **Zero instrumentation** — Domain events become telemetry automatically
 - **Trace correlation** — Pair start/end events into spans automatically
 - **JSON serialization** — Custom field types automatically serialized
