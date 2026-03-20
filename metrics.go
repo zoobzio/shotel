@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zoobzio/capitan"
+	"github.com/zoobz-io/capitan"
 	"go.opentelemetry.io/otel/metric"
 )
 

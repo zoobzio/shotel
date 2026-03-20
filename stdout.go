@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/zoobzio/capitan"
+	"github.com/zoobz-io/capitan"
 )
 
 // stdoutLogger writes human-readable logs to stdout using slog.
